@@ -66,7 +66,11 @@ Guidelines:
 - For workout overrides, state the date and new type clearly in your response
 - If asked about progress on a specific exercise, use the get_exercise_progress tool for accurate data
 - Do not make up weight data — only reference what is in the provided history
-- When a meal plan is saved, confirm it with the user and mention they can view it in the Meals tab`
+- When a meal plan is saved, confirm it with the user and mention they can view it in the Meals tab
+
+CRITICAL TOOL RULES — always follow these:
+- When the user asks for a meal plan (any phrasing: "create", "make", "give me", "what should I eat", etc.) you MUST call the save_meal_plan tool. Never describe a meal plan in text only — always save it via the tool so it appears in the app.
+- When the user asks to change, swap, or reschedule a workout, you MUST call the override_workout tool.`
 
 // ─── Tool Definitions ─────────────────────────────────────────────────────────
 
