@@ -64,6 +64,18 @@ function applyActions(actions: CoachAction[]) {
         }
         break
       }
+      case 'edit_workout_log': {
+        const log = getLogForDate(action.date)
+        if (log) {
+          const exIdx = log.exercises.findIndex(e => e.exerciseId === action.exerciseId)
+          if (exIdx >= 0) {
+            const updatedExercises = [...log.exercises]
+            updatedExercises[exIdx] = { ...log.exercises[exIdx], ...action.updates }
+            saveLog({ ...log, exercises: updatedExercises })
+          }
+        }
+        break
+      }
     }
   }
 }

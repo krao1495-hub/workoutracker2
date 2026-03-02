@@ -59,6 +59,7 @@ Your capabilities:
 - Schedule workout overrides (e.g. swap rest day and leg day)
 - Create structured meal plans tailored to their training days
 - Add notes to workout logs
+- Edit exercises in existing workout logs (rename, update weights/reps)
 
 Guidelines:
 - Be concise and practical — this is a mobile app, keep responses short and actionable
@@ -70,7 +71,8 @@ Guidelines:
 
 CRITICAL TOOL RULES — always follow these:
 - When the user asks for a meal plan (any phrasing: "create", "make", "give me", "what should I eat", etc.) you MUST call the save_meal_plan tool. Never describe a meal plan in text only — always save it via the tool so it appears in the app.
-- When the user asks to change, swap, or reschedule a workout, you MUST call the override_workout tool.`
+- When the user asks to change, swap, or reschedule a workout, you MUST call the override_workout tool.
+- When the user asks to edit, rename, or update an exercise in a past or today's log, you MUST call edit_workout_log. Always call get_workout_history first to get the exact exerciseId.`
 
 // ─── Tool Definitions ─────────────────────────────────────────────────────────
 
@@ -193,6 +195,44 @@ const tools: OpenAI.Chat.ChatCompletionTool[] = [
           },
         },
         required: ['exerciseId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_workout_log',
+      description: 'Edit an exercise entry in an existing workout log. Use to rename exercises, correct weights/reps, or update set completion. Call get_workout_history first to get the exact exerciseId and current data.',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: {
+            type: 'string',
+            description: 'Date of the workout log to edit in YYYY-MM-DD format',
+          },
+          exerciseId: {
+            type: 'string',
+            description: 'The exerciseId of the exercise to edit (from get_workout_history)',
+          },
+          name: {
+            type: 'string',
+            description: 'New display name for the exercise (optional)',
+          },
+          sets: {
+            type: 'array',
+            description: 'Full replacement set data (optional). Provide all sets, not just changed ones.',
+            items: {
+              type: 'object',
+              properties: {
+                setNumber: { type: 'number' },
+                reps: { type: 'number' },
+                weight: { type: 'number' },
+                completed: { type: 'boolean' },
+              },
+            },
+          },
+        },
+        required: ['date', 'exerciseId'],
       },
     },
   },
@@ -377,6 +417,24 @@ export async function POST(request: NextRequest) {
                   ? 'improving'
                   : 'plateaued'
                 : 'insufficient_data',
+          }
+          break
+        }
+
+        case 'edit_workout_log': {
+          const action: CoachAction = {
+            type: 'edit_workout_log',
+            date: args.date as string,
+            exerciseId: args.exerciseId as string,
+            updates: {
+              ...(args.name ? { name: args.name as string } : {}),
+              ...(args.sets ? { sets: args.sets } : {}),
+            },
+          }
+          pendingActions.push(action)
+          toolResult = {
+            success: true,
+            message: `Updated exercise "${args.exerciseId}" on ${args.date}`,
           }
           break
         }

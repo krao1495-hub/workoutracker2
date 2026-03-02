@@ -84,6 +84,7 @@ export type CoachAction =
   | { type: 'override_workout'; date: string; workoutType: WorkoutType }
   | { type: 'save_meal_plan'; plan: MealPlan }
   | { type: 'add_workout_note'; date: string; note: string }
+  | { type: 'edit_workout_log'; date: string; exerciseId: string; updates: { name?: string; sets?: SetLog[] } }
 
 // ─── Body Stats / BMR ─────────────────────────────────────────────────────────
 
