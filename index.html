@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Workout Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f172a; --surf: #1e293b; --surf2: #2d3f55; --surf3: #263044;
+  --border: #334155; --text: #f1f5f9; --muted: #64748b;
+  --green: #10b981; --red: #ef4444; --blue: #3b82f6;
+  --purple: #8b5cf6; --orange: #f59e0b; --teal: #14b8a6;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; min-height: 100dvh;
+  max-width: 500px; margin: 0 auto;
+  -webkit-font-smoothing: antialiased;
+}
+button { cursor: pointer; border: none; font-family: inherit; }
+input, select, textarea { font-family: inherit; }
+/* ── Header ── */
+.hd {
+  padding: 1rem 1rem .5rem;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  position: sticky; top: 0; background: var(--bg); z-index: 10;
+  border-bottom: 1px solid var(--border);
+}
+.hd-left h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+.hd-left small { color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
+.date-nav { display: flex; align-items: center; gap: .4rem; }
+.date-nav button {
+  background: var(--surf); color: var(--text);
+  border-radius: 8px; padding: .3rem .55rem; font-size: .95rem; line-height: 1;
+}
+.date-nav .dt { font-size: .75rem; color: var(--muted); min-width: 52px; text-align: center; }
+/* ── Tabs ── */
+.tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  background: var(--bg); position: sticky; top: 68px; z-index: 9;
+}
+.tab {
+  flex: 1; padding: .65rem .5rem; background: none; color: var(--muted);
+  border-bottom: 2px solid transparent; font-weight: 500; font-size: .85rem;
+  transition: color .15s, border-color .15s;
+}
+.tab.on { color: var(--text); border-bottom-color: var(--blue); }
+/* ── Scroll area ── */
+.scroll { overflow-y: auto; padding-bottom: 3rem; }
+/* ── Workout header card ── */
+.wk-hd {
+  margin: .75rem; border-radius: 14px; padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+}
+.wk-hd .row1 { display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+.wk-hd .icon { font-size: 1.4rem; }
+.badge {
+  background: rgba(255,255,255,.15); border-radius: 20px;
+  padding: .15rem .55rem; font-size: .65rem; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase;
+}
+.wk-hd .title { font-size: 1.05rem; font-weight: 700; }
+.wk-hd .sub { font-size: .78rem; opacity: .75; margin-top: .15rem; }
+/* ── Section label ── */
+.sec {
+  font-size: .65rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted);
+  margin: 1rem 1rem .4rem;
+}
+/* ── Exercise cards ── */
+.exlist { padding: 0 .75rem; display: flex; flex-direction: column; gap: .6rem; }
+.ex-card { background: var(--surf); border-radius: 12px; overflow: hidden; }
+.ex-hd {
+  padding: .8rem 1rem; display: flex;
+  justify-content: space-between; align-items: center; gap: .5rem;
+}
+.ex-name { font-weight: 600; font-size: .92rem; }
+.ex-target { font-size: .7rem; color: var(--muted); margin-top: .1rem; }
+.btn-add {
+  background: var(--surf2); color: var(--text); border-radius: 8px;
+  padding: .32rem .7rem; font-size: .8rem; font-weight: 600; white-space: nowrap; flex-shrink: 0;
+}
+/* logged sets */
+.sets { padding: .1rem 1rem .65rem; display: flex; flex-wrap: wrap; gap: .35rem; }
+.chip {
+  background: var(--surf3); border: 1px solid var(--border);
+  border-radius: 6px; padding: .18rem .48rem; font-size: .72rem;
+}
+.chip.best { border-color: var(--orange); color: var(--orange); }
+/* progress bar */
+.prog { height: 3px; background: var(--border); margin: 0 1rem .5rem; border-radius: 2px; }
+.prog-fill { height: 100%; border-radius: 2px; transition: width .35s; }
+/* inline log form */
+.log-form {
+  padding: .65rem 1rem; border-top: 1px solid var(--border);
+  background: var(--surf3); display: flex; gap: .5rem; flex-wrap: wrap; align-items: flex-end;
+}
+.log-form label { display: block; font-size: .65rem; color: var(--muted); margin-bottom: .22rem; }
+.log-form input {
+  background: var(--surf); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); padding: .48rem .5rem; width: 80px; font-size: .9rem;
+}
+.log-form input:focus { outline: none; border-color: var(--blue); }
+.btn-log {
+  background: var(--blue); color: #fff; border-radius: 8px;
+  padding: .48rem .9rem; font-weight: 700; font-size: .85rem; align-self: flex-end;
+}
+/* ── Run card ── */
+.run-card { margin: .75rem; background: var(--surf); border-radius: 12px; padding: 1.1rem 1.25rem; }
+.run-card h3 { font-size: .95rem; font-weight: 600; margin-bottom: .75rem; }
+.run-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem; }
+.run-field label { display: block; font-size: .65rem; color: var(--muted); margin-bottom: .25rem; }
+.run-field input {
+  width: 100%; background: var(--surf2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); padding: .55rem .4rem; font-size: .88rem; text-align: center;
+}
+.run-field input[readonly] { opacity: .6; }
+.run-pace { background: var(--surf3); border-radius: 8px; padding: .55rem .4rem; font-size: .88rem; text-align: center; color: var(--teal); font-weight: 600; }
+.run-note { margin-top: .6rem; font-size: .77rem; color: var(--muted); font-style: italic; }
+.run-saved {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: rgba(16,185,129,.12); color: var(--green); border-radius: 8px;
+  padding: .4rem .8rem; font-size: .8rem; font-weight: 600; margin-top: .65rem;
+}
+.btn-edit-run { background: none; color: var(--muted); font-size: .72rem; margin-left: .3rem; }
+.btn-save-run {
+  margin-top: .65rem; background: var(--green); color: #fff;
+  border-radius: 8px; padding: .55rem 1.25rem; font-weight: 700; font-size: .88rem;
+}
+/* ── Checkbox blocks (yoga / core) ── */
+.check-blocks { padding: 0 .75rem; display: flex; flex-direction: column; gap: .5rem; }
+.check-block {
+  background: var(--surf); border-radius: 12px; padding: .85rem 1rem;
+  display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+}
+.check-label { font-weight: 500; font-size: .9rem; }
+.check-sub { font-size: .72rem; color: var(--muted); margin-top: .1rem; }
+.checkmark {
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: .8rem;
+  transition: .15s; flex-shrink: 0;
+}
+.checkmark.done { background: var(--purple); border-color: var(--purple); }
+/* ── Notes ── */
+.notes-wrap { margin: .75rem; }
+.notes-wrap textarea {
+  width: 100%; background: var(--surf); border: 1px solid var(--border);
+  border-radius: 12px; color: var(--text); padding: .75rem 1rem;
+  font-size: .875rem; resize: none; min-height: 72px; display: block;
+}
+.notes-wrap textarea:focus { outline: none; border-color: var(--blue); }
+.notes-wrap textarea::placeholder { color: var(--muted); }
+/* ── History ── */
+.hist-list { padding: .5rem .75rem; display: flex; flex-direction: column; gap: .6rem; }
+.hist-item {
+  background: var(--surf); border-radius: 12px; padding: .9rem 1.1rem; cursor: pointer;
+  transition: opacity .15s;
+}
+.hist-item:hover { opacity: .85; }
+.hist-date { font-size: .7rem; color: var(--muted); margin-bottom: .35rem; }
+.hist-theme { font-weight: 600; display: flex; align-items: center; gap: .4rem; font-size: .92rem; }
+.hist-theme .wk { font-size: .72rem; color: var(--muted); font-weight: 400; }
+.hist-sum { margin-top: .3rem; font-size: .77rem; color: var(--muted); }
+.hist-note { margin-top: .25rem; font-style: italic; font-size: .75rem; color: var(--muted); }
+/* ── Progress ── */
+.prog-wrap { padding: .75rem; }
+.ex-sel {
+  width: 100%; background: var(--surf); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); padding: .6rem .8rem;
+  font-size: .88rem; margin-bottom: .75rem;
+}
+.chart-box { background: var(--surf); border-radius: 12px; padding: 1rem; }
+.chart-box .clabel { font-size: .7rem; color: var(--muted); margin-bottom: .4rem; }
+.prog-entries { margin-top: .75rem; display: flex; flex-direction: column; gap: .45rem; }
+.prog-entry {
+  background: var(--surf); border-radius: 10px; padding: .7rem 1rem;
+  display: flex; justify-content: space-between; align-items: center; font-size: .83rem;
+}
+.prog-entry .pd { font-size: .7rem; color: var(--muted); margin-top: .1rem; }
+.prog-entry .pw { font-weight: 700; font-size: .95rem; }
+.prog-entry .pnew { color: var(--orange); font-size: .68rem; font-weight: 700; }
+/* ── Empty ── */
+.empty { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+.empty .ei { font-size: 2.5rem; margin-bottom: .6rem; }
+/* ── Color themes ── */
+.c-yoga  { --c1: #4c1d95; --c2: #6d28d9; }
+.c-run   { --c1: #064e3b; --c2: #059669; }
+.c-legs  { --c1: #7f1d1d; --c2: #dc2626; }
+.c-upper { --c1: #1e3a5f; --c2: #3b82f6; }
+.c-lrun  { --c1: #78350f; --c2: #d97706; }
+@media (max-width: 380px) { .run-grid { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ═══════════════════════════════════════════════
+// WORKOUT DATA
+// ═══════════════════════════════════════════════
+const W = {
+  1: { // Monday
+    theme: 'Rest & Yoga', icon: '🧘', cls: 'c-yoga', type: 'yoga',
+    weeks: [
+      { title: 'Week 1 — Yoga' },
+      { title: 'Week 2 — Yoga' },
+      { title: 'Week 3 — Yoga' }
+    ]
+  },
+  2: { // Tuesday
+    theme: 'Easy Run', icon: '🏃', cls: 'c-run', type: 'run', easy: true,
+    note: 'Conversational pace · Zone 2 · Breathe through your nose if possible'
+  },
+  3: { // Wednesday
+    theme: 'Leg Day', icon: '🦵', cls: 'c-legs', type: 'strength',
+    sub: 'Quads & Compound Movements', core: true,
+    weeks: [
+      { title: 'Classic Strength', ex: [
+        { n: 'Barbell Back Squat',   s: 4, r: '8'     },
+        { n: 'Leg Press',            s: 3, r: '12'    },
+        { n: 'Walking Lunges',       s: 3, r: '10 ea' },
+        { n: 'Leg Extension',        s: 3, r: '15'    },
+        { n: 'Standing Calf Raise',  s: 4, r: '15'    },
+      ]},
+      { title: 'Unilateral Focus', ex: [
+        { n: 'Front Squat',             s: 4, r: '8'     },
+        { n: 'Bulgarian Split Squat',   s: 3, r: '10 ea' },
+        { n: 'Box Step-Up',             s: 3, r: '12 ea' },
+        { n: 'Leg Press',               s: 3, r: '15'    },
+        { n: 'Seated Calf Raise',       s: 4, r: '15'    },
+      ]},
+      { title: 'Volume & Pump', ex: [
+        { n: 'Hack Squat',              s: 4, r: '10'    },
+        { n: 'Goblet Squat',            s: 3, r: '15'    },
+        { n: 'Sissy Squat',             s: 3, r: '12'    },
+        { n: 'Leg Extension',           s: 4, r: '15'    },
+        { n: 'Single Leg Calf Raise',   s: 3, r: '15 ea' },
+      ]},
+    ]
+  },
+  4: { // Thursday
+    theme: 'Run', icon: '🏃', cls: 'c-run', type: 'run', easy: false,
+    note: 'Moderate effort · Comfortably hard · Can speak a sentence but prefer not to'
+  },
+  5: { // Friday
+    theme: 'Leg Day', icon: '🦵', cls: 'c-legs', type: 'strength',
+    sub: 'Hamstrings, Glutes & Posterior Chain',
+    weeks: [
+      { title: 'Posterior Chain', ex: [
+        { n: 'Romanian Deadlift',   s: 4, r: '8'     },
+        { n: 'Lying Leg Curl',      s: 3, r: '12'    },
+        { n: 'Glute Bridge',        s: 3, r: '15'    },
+        { n: 'Sumo Squat',          s: 3, r: '10'    },
+        { n: 'Seated Calf Raise',   s: 4, r: '15'    },
+      ]},
+      { title: 'Hip Hinge Power', ex: [
+        { n: 'Conventional Deadlift',   s: 4, r: '6'  },
+        { n: 'Hip Thrust',              s: 4, r: '12' },
+        { n: 'Nordic Hamstring Curl',   s: 3, r: '8'  },
+        { n: 'Standing Calf Raise',     s: 4, r: '15' },
+      ]},
+      { title: 'Accessory & Burnout', ex: [
+        { n: 'Stiff Leg Deadlift',      s: 4, r: '10'    },
+        { n: 'Swiss Ball Hamstring Curl', s: 3, r: '12'  },
+        { n: 'Lateral Lunge',           s: 3, r: '10 ea' },
+        { n: 'Single Leg RDL',           s: 3, r: '10 ea' },
+        { n: 'Seated Calf Raise',       s: 4, r: '15'    },
+      ]},
+    ]
+  },
+  6: { // Saturday
+    theme: 'Long Run', icon: '🏃', cls: 'c-lrun', type: 'run', easy: true, long: true,
+    note: 'Easy, conversational pace · Focus on time on feet, not speed · Stay relaxed'
+  },
+  0: { // Sunday
+    theme: 'Upper Body + Yoga', icon: '💪', cls: 'c-upper', type: 'strength+yoga',
+    sub: 'Upper Body & Core', core: true, yoga: true,
+    weeks: [
+      { title: 'Push / Pull Power', ex: [
+        { n: 'Bench Press',     s: 4, r: '8'  },
+        { n: 'Barbell Row',     s: 4, r: '8'  },
+        { n: 'Cable Row',       s: 3, r: '12' },
+        { n: 'Overhead Press',  s: 3, r: '10' },
+        { n: 'Barbell Curl',    s: 3, r: '12' },
+        { n: 'Skull Crushers',  s: 3, r: '12' },
+      ]},
+      { title: 'Bodyweight & Dumbbells', ex: [
+        { n: 'Pull-Ups',        s: 4, r: 'max' },
+        { n: 'Cable Row',       s: 3, r: '12' },
+        { n: 'Incline DB Press',s: 4, r: '10'  },
+        { n: 'DB Lateral Raise',s: 3, r: '15'  },
+        { n: 'Hammer Curls',    s: 3, r: '12'  },
+        { n: 'Tricep Dips',     s: 3, r: 'max' },
+      ]},
+      { title: 'Cable & Machine', ex: [
+        { n: 'Cable Row',           s: 4, r: '12' },
+        { n: 'Push-Ups (Weighted)', s: 3, r: 'max'},
+        { n: 'Arnold Press',        s: 3, r: '10' },
+        { n: 'Cable Bicep Curl',    s: 3, r: '15' },
+        { n: 'Tricep Pushdown',     s: 3, r: '15' },
+      ]},
+    ]
+  }
+};
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function ds(d) { return d.toISOString().slice(0, 10); }
+
+function cycleWeek(date) {
+  const ref = new Date('2026-03-23'); // Monday March 23 2026 = start of Week 1
+  const d = new Date(date);
+  const day = d.getDay();
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  mon.setHours(0, 0, 0, 0);
+  const weeks = Math.floor((mon - ref) / (7 * 86400000));
+  return ((weeks % 3) + 3) % 3; // 0, 1, 2
+}
+
+function fmtDate(d) {
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function calcPace(dist, mins) {
+  if (!dist || !mins || parseFloat(dist) <= 0) return '';
+  const pace = parseFloat(mins) / parseFloat(dist);
+  const m = Math.floor(pace), s = Math.round((pace - m) * 60);
+  return `${m}:${s.toString().padStart(2, '0')} /mi`;
+}
+
+function isToday(d) { return ds(d) === ds(new Date()); }
+
+// ═══════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════
+const DB = {
+  getLog(k) {
+    return JSON.parse(localStorage.getItem('log_' + k) || 'null') ||
+      { sets: {}, run: null, checks: {}, notes: '' };
+  },
+  save(k, log) { localStorage.setItem('log_' + k, JSON.stringify(log)); },
+  addSet(k, name, set) {
+    const l = this.getLog(k);
+    (l.sets[name] = l.sets[name] || []).push(set);
+    this.save(k, l);
+  },
+  saveRun(k, run) { const l = this.getLog(k); l.run = run; this.save(k, l); },
+  toggleCheck(k, id) {
+    const l = this.getLog(k); l.checks[id] = !l.checks[id]; this.save(k, l);
+    return l.checks[id];
+  },
+  saveNotes(k, notes) { const l = this.getLog(k); l.notes = notes; this.save(k, l); },
+  allLogs() {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith('log_'))
+        out.push({ date: key.slice(4), log: JSON.parse(localStorage.getItem(key)) });
+    }
+    return out.sort((a, b) => b.date.localeCompare(a.date));
+  },
+  exHistory(name) {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key.startsWith('log_')) continue;
+      const log = JSON.parse(localStorage.getItem(key));
+      const sets = log.sets && log.sets[name];
+      if (sets && sets.length) {
+        const maxW = Math.max(...sets.map(s => parseFloat(s.w) || 0));
+        out.push({ date: key.slice(4), sets, maxW });
+      }
+    }
+    return out.sort((a, b) => a.date.localeCompare(b.date));
+  }
+};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let S = { date: new Date(), tab: 'today', form: null, progEx: null };
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+function render() {
+  document.getElementById('app').innerHTML = html();
+  bind();
+}
+
+function html() {
+  const w = W[S.date.getDay()];
+  const cw = cycleWeek(S.date);
+  const k = ds(S.date);
+  const log = DB.getLog(k);
+  return `
+    <div class="hd">
+      <div class="hd-left">
+        <small>${isToday(S.date) ? 'Today' : fmtDate(S.date)}</small>
+        <h1>${w.icon} ${w.theme}</h1>
+      </div>
+      <div class="date-nav">
+        <button data-a="prev">◀</button>
+        <span class="dt">${S.date.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+        <button data-a="next">▶</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab ${S.tab==='today'?'on':''}" data-tab="today">Workout</button>
+      <button class="tab ${S.tab==='history'?'on':''}" data-tab="history">History</button>
+      <button class="tab ${S.tab==='progress'?'on':''}" data-tab="progress">Progress</button>
+    </div>
+    <div class="scroll">
+      ${S.tab==='today'    ? today(w, cw, k, log) : ''}
+      ${S.tab==='history'  ? history() : ''}
+      ${S.tab==='progress' ? progress() : ''}
+    </div>`;
+}
+
+// ── TODAY ──────────────────────────────────────
+function today(w, cw, k, log) {
+  const wd = w.weeks ? w.weeks[cw] : null;
+  let o = `
+    <div class="wk-hd ${w.cls}">
+      <div class="row1">
+        <span class="icon">${w.icon}</span>
+        <span class="badge">Cycle Week ${cw + 1} / 3</span>
+      </div>
+      ${wd ? `<div class="title">${wd.title}</div>` : ''}
+      ${w.sub  ? `<div class="sub">Focus: ${w.sub}</div>` : ''}
+      ${w.note ? `<div class="sub">${w.note}</div>` : ''}
+    </div>`;
+
+  if (w.type === 'run')          o += runCard(k, log, w);
+  else if (w.type === 'yoga')    o += yogaBlock(k, log);
+  else if (w.type === 'strength' || w.type === 'strength+yoga') {
+    o += strengthSection(wd, k, log);
+    if (w.core) o += checkBlock(k, log, 'core', '10 min of Core', 'Planks, hollow holds, dead bugs…');
+    if (w.yoga) o += checkBlock(k, log, 'yoga', '30 min of Yoga', 'Stretch, recover, cool down');
+  }
+
+  o += `<div class="sec">Notes</div>
+    <div class="notes-wrap">
+      <textarea placeholder="How did it go? Any thoughts…" data-a="notes">${log.notes||''}</textarea>
+    </div>`;
+  return o;
+}
+
+function strengthSection(wd, k, log) {
+  if (!wd) return '<div class="empty"><div class="ei">💪</div><p>No exercises found</p></div>';
+  let o = '<div class="sec">Exercises</div><div class="exlist">';
+  for (const ex of wd.ex) {
+    const sets = (log.sets[ex.n] || []);
+    const isOpen = S.form === ex.n;
+    const pct = Math.min(100, (sets.length / ex.s) * 100);
+    const best = sets.length
+      ? sets.reduce((b, s) => (parseFloat(s.w)||0)*(parseInt(s.r)||1) > (parseFloat(b.w)||0)*(parseInt(b.r)||1) ? s : b, sets[0])
+      : null;
+    o += `<div class="ex-card">
+      <div class="ex-hd">
+        <div>
+          <div class="ex-name">${ex.n}</div>
+          <div class="ex-target">${ex.s} sets × ${ex.r} reps</div>
+        </div>
+        <button class="btn-add" data-a="form" data-ex="${ex.n}">${isOpen ? 'Cancel' : '+ Set'}</button>
+      </div>
+      ${sets.length ? `<div class="sets">${sets.map((s,i)=>{
+        const bw = !s.w||s.w==='0'||s.w==='';
+        const lbl = bw ? `${s.r} reps` : `${s.w}lb × ${s.r}`;
+        return `<span class="chip${s===best?' best':''}" title="Set ${i+1}">S${i+1}: ${lbl}</span>`;
+      }).join('')}</div>
+      <div class="prog"><div class="prog-fill" style="width:${pct}%;background:${pct>=100?'var(--green)':'var(--blue)'}"></div></div>` : ''}
+      ${isOpen ? `<div class="log-form">
+        <div><label>Weight (lbs)</label><input id="iw" type="number" placeholder="135" step="2.5" min="0" inputmode="decimal"></div>
+        <div><label>Reps</label><input id="ir" type="number" placeholder="${ex.r}" min="1" inputmode="numeric"></div>
+        <button class="btn-log" data-a="log" data-ex="${ex.n}">Log</button>
+      </div>` : ''}
+    </div>`;
+  }
+  return o + '</div>';
+}
+
+function runCard(k, log, w) {
+  const r = log.run || {};
+  const saved = r.saved;
+  const pace = calcPace(r.d, r.t);
+  return `<div class="run-card">
+    <h3>${w.long ? '🗓 Long Run' : w.easy ? '🟢 Easy Run' : '🔵 Run'} — Log</h3>
+    <div class="run-grid">
+      <div class="run-field"><label>Distance (mi)</label>
+        <input id="rd" type="number" value="${r.d||''}" placeholder="3.1" step="0.1" min="0" inputmode="decimal" ${saved?'readonly':''}></div>
+      <div class="run-field"><label>Time (min)</label>
+        <input id="rt" type="number" value="${r.t||''}" placeholder="30" step="1" min="0" inputmode="numeric" ${saved?'readonly':''}></div>
+      <div class="run-field"><label>Pace</label>
+        <div class="run-pace" id="rpace">${saved&&pace ? pace : '—'}</div></div>
+      <div class="run-field"><label>RPE (1–10)</label>
+        <input id="rr" type="number" value="${r.rpe||''}" placeholder="6" min="1" max="10" inputmode="numeric" ${saved?'readonly':''}></div>
+    </div>
+    <div class="run-note">${w.note}</div>
+    ${saved
+      ? `<div class="run-saved">✓ ${r.d||'?'}mi · ${r.t||'?'}min · ${pace||'—'} · RPE ${r.rpe||'?'}
+          <button class="btn-edit-run" data-a="edit-run">Edit</button></div>`
+      : `<button class="btn-save-run" data-a="save-run">Save Run</button>`}
+  </div>`;
+}
+
+function yogaBlock(k, log) {
+  return `<div class="sec">Today</div>` + checkBlock(k, log, 'yoga', '30 min of Yoga', 'Rest, stretch, breathe');
+}
+
+function checkBlock(k, log, id, label, sub) {
+  const done = !!(log.checks && log.checks[id]);
+  return `<div class="check-blocks">
+    <div class="check-block" data-a="check" data-id="${id}">
+      <div>
+        <div class="check-label">${label}</div>
+        <div class="check-sub">${sub}</div>
+      </div>
+      <div class="checkmark ${done?'done':''}">${done?'✓':''}</div>
+    </div>
+  </div>`;
+}
+
+// ── HISTORY ────────────────────────────────────
+function history() {
+  const logs = DB.allLogs();
+  if (!logs.length) return `<div class="empty"><div class="ei">📅</div><p>No workouts logged yet.<br>Start today!</p></div>`;
+  let o = '<div class="hist-list">';
+  for (const { date: d, log } of logs) {
+    const dt = new Date(d + 'T12:00:00');
+    const w = W[dt.getDay()];
+    const cw = cycleWeek(dt);
+    const wd = w.weeks ? w.weeks[cw] : null;
+    const setsN = Object.values(log.sets||{}).reduce((a,s)=>a+s.length,0);
+    const hasRun = log.run?.saved;
+    const checks = Object.values(log.checks||{}).filter(Boolean).length;
+    const parts = [];
+    if (setsN)   parts.push(`${setsN} sets`);
+    if (hasRun)  parts.push(`${log.run.d||'?'}mi run`);
+    if (checks)  parts.push(`${checks} done`);
+    o += `<div class="hist-item" data-a="goto" data-ds="${d}">
+      <div class="hist-date">${dt.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
+      <div class="hist-theme">${w.icon} ${w.theme}${wd?`<span class="wk">· ${wd.title}</span>`:''}</div>
+      <div class="hist-sum">${parts.length?parts.join(' · '):'<em>No data logged</em>'}</div>
+      ${log.notes?`<div class="hist-note">"${log.notes.slice(0,70)}${log.notes.length>70?'…':''}"</div>`:''}
+    </div>`;
+  }
+  return o + '</div>';
+}
+
+// ── PROGRESS ───────────────────────────────────
+function progress() {
+  const allEx = new Set();
+  Object.values(W).forEach(w => {
+    if (w.weeks) w.weeks.forEach(wk => wk.ex && wk.ex.forEach(e => allEx.add(e.n)));
+  });
+  const exList = [...allEx].sort();
+  if (!S.progEx && exList.length) S.progEx = exList[0];
+  const hist = S.progEx ? DB.exHistory(S.progEx) : [];
+  let o = `<div class="prog-wrap">
+    <select class="ex-sel" data-a="sel-ex">
+      ${exList.map(e=>`<option value="${e}"${e===S.progEx?' selected':''}>${e}</option>`).join('')}
+    </select>`;
+  if (!hist.length) {
+    o += `<div class="empty"><div class="ei">📈</div><p>No data yet for<br><strong>${S.progEx}</strong></p></div>`;
+  } else {
+    const maxW = Math.max(...hist.map(h=>h.maxW));
+    o += `<div class="chart-box"><div class="clabel">Max Weight (lbs)</div>${svgChart(hist,maxW)}</div>
+    <div class="prog-entries">
+      ${hist.slice().reverse().map((h,i)=>{
+        const dt = new Date(h.date+'T12:00:00');
+        return `<div class="prog-entry">
+          <div>
+            <div>${h.sets.map((s,j)=>`<span style="font-size:.78rem;margin-right:.4rem">S${j+1}: ${s.w?s.w+'lb × ':''}${s.r}</span>`).join('')}</div>
+            <div class="pd">${dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+          </div>
+          <div style="text-align:right">
+            ${h.maxW>0?`<div class="pw">${h.maxW} lbs</div>`:''}
+            ${i===0?'<div class="pnew">LATEST</div>':''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  return o + '</div>';
+}
+
+function svgChart(hist, maxW) {
+  if (hist.length < 2) return `<svg width="100%" height="100" viewBox="0 0 400 100"><circle cx="200" cy="50" r="6" fill="var(--blue)"/></svg>`;
+  const pad = { t:10, b:20, l:4, r:4 };
+  const W2 = 400 - pad.l - pad.r, H = 100 - pad.t - pad.b;
+  const pts = hist.map((h,i) => ({
+    x: pad.l + (i/(hist.length-1))*W2,
+    y: pad.t + H - (maxW > 0 ? (h.maxW/maxW)*H : 0)
+  }));
+  const poly = pts.map(p=>`${p.x},${p.y}`).join(' ');
+  const area = `M ${pts[0].x},${100-pad.b} ${pts.map(p=>`L ${p.x},${p.y}`).join(' ')} L ${pts[pts.length-1].x},${100-pad.b} Z`;
+  return `<svg width="100%" height="100" viewBox="0 0 400 100">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#g)"/>
+    <polyline points="${poly}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="var(--blue)" stroke="var(--surf)" stroke-width="2"/>`).join('')}
+  </svg>`;
+}
+
+// ═══════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════
+function bind() {
+  const $ = s => document.querySelectorAll(s);
+
+  // tabs
+  $('[data-tab]').forEach(b => b.addEventListener('click', () => { S.tab = b.dataset.tab; render(); }));
+
+  // date nav
+  const prev = document.querySelector('[data-a="prev"]');
+  const next = document.querySelector('[data-a="next"]');
+  if (prev) prev.addEventListener('click', () => { S.date.setDate(S.date.getDate()-1); S.form=null; render(); });
+  if (next) next.addEventListener('click', () => { S.date.setDate(S.date.getDate()+1); S.form=null; render(); });
+
+  // toggle exercise form
+  $('[data-a="form"]').forEach(b => b.addEventListener('click', () => {
+    S.form = S.form === b.dataset.ex ? null : b.dataset.ex; render();
+  }));
+
+  // log set
+  $('[data-a="log"]').forEach(b => b.addEventListener('click', () => {
+    const w = document.getElementById('iw')?.value || '';
+    const r = document.getElementById('ir')?.value || '';
+    if (!r) return;
+    DB.addSet(ds(S.date), b.dataset.ex, { w, r, ts: Date.now() });
+    S.form = null; render();
+  }));
+
+  // enter on reps → log
+  const ir = document.getElementById('ir');
+  if (ir) ir.addEventListener('keydown', e => { if (e.key==='Enter') document.querySelector('[data-a="log"]')?.click(); });
+
+  // live pace calc
+  ['rd','rt'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.readOnly) el.addEventListener('input', () => {
+      const d2 = document.getElementById('rd')?.value;
+      const t2 = document.getElementById('rt')?.value;
+      const p = document.getElementById('rpace');
+      if (p) p.textContent = calcPace(d2,t2) || '—';
+    });
+  });
+
+  // save run
+  const saveRun = document.querySelector('[data-a="save-run"]');
+  if (saveRun) saveRun.addEventListener('click', () => {
+    const d2 = document.getElementById('rd')?.value || '';
+    const t2 = document.getElementById('rt')?.value || '';
+    const rpe = document.getElementById('rr')?.value || '';
+    DB.saveRun(ds(S.date), { d:d2, t:t2, rpe, saved:true });
+    render();
+  });
+
+  // edit run
+  const editRun = document.querySelector('[data-a="edit-run"]');
+  if (editRun) editRun.addEventListener('click', () => {
+    const k = ds(S.date); const l = DB.getLog(k);
+    if (l.run) { l.run.saved = false; DB.save(k,l); } render();
+  });
+
+  // checkboxes (yoga / core)
+  $('[data-a="check"]').forEach(el => el.addEventListener('click', () => {
+    DB.toggleCheck(ds(S.date), el.dataset.id); render();
+  }));
+
+  // notes (debounced)
+  const notes = document.querySelector('[data-a="notes"]');
+  if (notes) {
+    let t;
+    notes.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => DB.saveNotes(ds(S.date), notes.value), 400); });
+  }
+
+  // history goto
+  $('[data-a="goto"]').forEach(el => el.addEventListener('click', () => {
+    S.date = new Date(el.dataset.ds + 'T12:00:00'); S.tab='today'; S.form=null; render();
+  }));
+
+  // progress exercise select
+  const sel = document.querySelector('[data-a="sel-ex"]');
+  if (sel) sel.addEventListener('change', () => { S.progEx = sel.value; render(); });
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+render();
+
+// Register service worker for offline + PWA install
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

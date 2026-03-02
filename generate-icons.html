@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html><body>
+<p>Right-click each image and "Save Image As" to get the PNG icons:</p>
+<p>192x192:</p><canvas id="c1" width="192" height="192"></canvas>
+<p>512x512:</p><canvas id="c2" width="512" height="512"></canvas>
+<script>
+function draw(canvas) {
+  const s = canvas.width, ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0f172a';
+  const r = s * 0.19;
+  ctx.beginPath();
+  ctx.moveTo(r, 0); ctx.lineTo(s - r, 0); ctx.quadraticCurveTo(s, 0, s, r);
+  ctx.lineTo(s, s - r); ctx.quadraticCurveTo(s, s, s - r, s);
+  ctx.lineTo(r, s); ctx.quadraticCurveTo(0, s, 0, s - r);
+  ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.fill();
+  const cx = s/2, cy = s/2;
+  ctx.strokeStyle = '#3b82f6'; ctx.lineCap = 'round'; ctx.lineWidth = s * 0.055;
+  ctx.beginPath(); ctx.moveTo(cx - s*0.31, cy); ctx.lineTo(cx + s*0.31, cy); ctx.stroke();
+  ctx.fillStyle = '#3b82f6';
+  roundRect(ctx, cx - s*0.34, cy - s*0.14, s*0.06, s*0.28, s*0.015);
+  roundRect(ctx, cx + s*0.28, cy - s*0.14, s*0.06, s*0.28, s*0.015);
+  ctx.fillStyle = '#6366f1';
+  roundRect(ctx, cx - s*0.28, cy - s*0.10, s*0.04, s*0.20, s*0.012);
+  roundRect(ctx, cx + s*0.24, cy - s*0.10, s*0.04, s*0.20, s*0.012);
+}
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.fill();
+}
+draw(document.getElementById('c1'));
+draw(document.getElementById('c2'));
+// Auto-download both
+['c1','c2'].forEach(id => {
+  const c = document.getElementById(id);
+  const a = document.createElement('a');
+  a.download = `icon-${c.width}.png`;
+  a.href = c.toDataURL('image/png');
+  a.click();
+});
+</script></body></html>
