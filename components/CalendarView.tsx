@@ -306,14 +306,15 @@ export default function CalendarView() {
                     </button>
                   )}
 
-                  {selectedDate === todayStr && (
-                    <button
-                      onClick={() => { closeSheet(); router.push('/') }}
-                      className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors"
-                    >
-                      Go log this workout →
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      closeSheet()
+                      router.push(selectedDate === todayStr ? '/' : `/?date=${selectedDate}`)
+                    }}
+                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors"
+                  >
+                    Log this workout →
+                  </button>
                 </div>
               </div>
             </div>

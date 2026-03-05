@@ -16,9 +16,10 @@ import {
 import ExerciseLogger from './ExerciseLogger'
 import RunLogger from './RunLogger'
 import FeedbackPanel from './FeedbackPanel'
-import { CheckCircle2, RefreshCw } from 'lucide-react'
+import { CheckCircle2, RefreshCw, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 
-export default function TodayWorkout() {
+export default function TodayWorkout({ date }: { date?: string }) {
   const [log, setLog] = useState<WorkoutLog | null>(null)
   const [settings, setSettings] = useState<Settings>({
     email: '',
@@ -27,38 +28,43 @@ export default function TodayWorkout() {
   })
   const [allLogs, setAllLogs] = useState<WorkoutLog[]>([])
 
+  const todayStr = formatDate(new Date())
+  const targetDate = date || todayStr
+  const isToday = targetDate === todayStr
+
   useEffect(() => {
     const s = getSettings()
     setSettings(s)
     const logs = getLogs()
     setAllLogs(logs)
 
-    const today = formatDate(new Date())
+    const targetDateObj = date ? new Date(date + 'T12:00:00') : new Date()
+    const dateStr = date || formatDate(new Date())
     const overrides = getOverrides()
-    const workoutType = getEffectiveWorkoutType(new Date(), overrides)
-    const weekInCycle = getWeekInCycle(new Date(), s.cycleStartDate)
+    const workoutType = getEffectiveWorkoutType(targetDateObj, overrides)
+    const weekInCycle = getWeekInCycle(targetDateObj, s.cycleStartDate)
 
-    const existing = getLogForDate(today)
+    const existing = getLogForDate(dateStr)
     if (existing) {
       setLog(existing)
     } else {
-      const fresh = createInitialLog(today, workoutType, weekInCycle)
+      const fresh = createInitialLog(dateStr, workoutType, weekInCycle)
       setLog(fresh)
       saveLog(fresh)
     }
-  }, [])
+  }, [date])
 
   const updateLog = (updated: WorkoutLog) => {
     setLog(updated)
     saveLog(updated)
   }
 
-  const resetToday = () => {
-    const today = formatDate(new Date())
+  const resetLog = () => {
+    const targetDateObj = date ? new Date(date + 'T12:00:00') : new Date()
     const overrides = getOverrides()
-    const workoutType = getEffectiveWorkoutType(new Date(), overrides)
-    const weekInCycle = getWeekInCycle(new Date(), settings.cycleStartDate)
-    const fresh = createInitialLog(today, workoutType, weekInCycle)
+    const workoutType = getEffectiveWorkoutType(targetDateObj, overrides)
+    const weekInCycle = getWeekInCycle(targetDateObj, settings.cycleStartDate)
+    const fresh = createInitialLog(targetDate, workoutType, weekInCycle)
     updateLog(fresh)
   }
 
@@ -83,6 +89,14 @@ export default function TodayWorkout() {
 
   return (
     <div className="space-y-4">
+      {/* Back to calendar link (when viewing a different date) */}
+      {!isToday && (
+        <Link href="/calendar" className="inline-flex items-center gap-1 text-sm text-blue-600 font-medium hover:text-blue-700">
+          <ArrowLeft className="w-4 h-4" />
+          Back to calendar
+        </Link>
+      )}
+
       {/* Date + workout header */}
       <div className={`rounded-xl p-4 border-2 ${bg} ${border}`}>
         <div className="flex items-start justify-between">
@@ -102,8 +116,8 @@ export default function TodayWorkout() {
               <CheckCircle2 className="w-7 h-7 text-green-500" />
             )}
             <button
-              onClick={resetToday}
-              title="Reset today's log"
+              onClick={resetLog}
+              title="Reset this log"
               className="text-slate-400 hover:text-slate-600 transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
@@ -142,7 +156,7 @@ export default function TodayWorkout() {
       {hasYoga && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <h3 className="font-semibold text-slate-800 mb-2">
-            {isYoga ? "Today's Practice" : '30 min Yoga'}
+            {isYoga ? 'Yoga Practice' : '30 min Yoga'}
           </h3>
           <label className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 cursor-pointer">
             <input
