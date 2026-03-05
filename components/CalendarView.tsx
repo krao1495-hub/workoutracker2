@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, ArrowRightLeft } from 'lucide-react'
 import { WorkoutType, WeekInCycle } from '@/lib/types'
 import { getLogForDate, getOverrides, setOverride, removeOverride, getSettings } from '@/lib/storage'
 import {
@@ -31,9 +31,7 @@ const SHORT_LABELS: Record<WorkoutType, string> = {
   upper_body:   'upper',
 }
 
-const ALL_TYPES: WorkoutType[] = [
-  'rest_yoga', 'easy_run', 'long_run', 'legs_squat', 'legs_no_squat', 'upper_body',
-]
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function CalendarView() {
   const router = useRouter()
@@ -45,7 +43,7 @@ export default function CalendarView() {
   const [overrides, setOverrides] = useState<Record<string, WorkoutType>>({})
   const [cycleStartDate, setCycleStartDate] = useState('2026-03-02')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [isPickingType, setIsPickingType] = useState(false)
+  const [isMoving, setIsMoving] = useState(false)
 
   useEffect(() => {
     setOverrides(getOverrides())
@@ -82,25 +80,70 @@ export default function CalendarView() {
 
   function handleDayClick(day: number) {
     setSelectedDate(dateStr(day))
-    setIsPickingType(false)
+    setIsMoving(false)
   }
 
   function closeSheet() {
     setSelectedDate(null)
-    setIsPickingType(false)
-  }
-
-  function handleSetOverride(type: WorkoutType) {
-    if (!selectedDate) return
-    setOverride(selectedDate, type)
-    setOverrides(getOverrides())
-    setIsPickingType(false)
+    setIsMoving(false)
   }
 
   function handleRemoveOverride() {
     if (!selectedDate) return
     removeOverride(selectedDate)
     setOverrides(getOverrides())
+  }
+
+  function handleMoveWorkout(targetDateStr: string) {
+    if (!selectedDate || targetDateStr === selectedDate) return
+
+    const sourceDate = new Date(selectedDate + 'T12:00:00')
+    const targetDate = new Date(targetDateStr + 'T12:00:00')
+
+    // Get current effective types for both dates
+    const sourceType = getEffectiveWorkoutType(sourceDate, overrides)
+    const targetType = getEffectiveWorkoutType(targetDate, overrides)
+
+    // Get default types (without overrides) to check if override is needed
+    const sourceDefault = getWorkoutTypeForDate(sourceDate)
+    const targetDefault = getWorkoutTypeForDate(targetDate)
+
+    // Swap: source gets target's type, target gets source's type
+    if (targetType === sourceDefault) {
+      removeOverride(selectedDate)
+    } else {
+      setOverride(selectedDate, targetType)
+    }
+
+    if (sourceType === targetDefault) {
+      removeOverride(targetDateStr)
+    } else {
+      setOverride(targetDateStr, sourceType)
+    }
+
+    setOverrides(getOverrides())
+    setIsMoving(false)
+  }
+
+  // Get the surrounding days for the move picker (Mon-Sun of the selected date's week)
+  function getWeekDays(dateStr: string): { date: string; dayName: string; dayNum: number }[] {
+    const d = new Date(dateStr + 'T12:00:00')
+    const dayOfWeek = d.getDay() // 0=Sun, 1=Mon, ...
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    const monday = new Date(d)
+    monday.setDate(d.getDate() + mondayOffset)
+
+    const days: { date: string; dayName: string; dayNum: number }[] = []
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(monday)
+      day.setDate(monday.getDate() + i)
+      days.push({
+        date: formatDate(day),
+        dayName: DAY_NAMES[day.getDay()],
+        dayNum: day.getDate(),
+      })
+    }
+    return days
   }
 
   // ── Selected day detail ───────────────────────────────────────────────────
@@ -257,28 +300,32 @@ export default function CalendarView() {
                 {/* Workout detail */}
                 <WorkoutDetail workoutType={sheetWorkoutType} week={sheetWeek} />
 
-                {/* Type picker */}
-                {isPickingType && (
+                {/* Move workout picker */}
+                {isMoving && selectedDate && (
                   <div className="mt-4">
-                    <p className="text-sm font-semibold text-slate-700 mb-2">Choose workout type:</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {ALL_TYPES.map(type => {
-                        const c = getWorkoutColors(type)
-                        const isCurrent = type === sheetWorkoutType
+                    <p className="text-sm font-semibold text-slate-700 mb-2">Swap with:</p>
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {getWeekDays(selectedDate).map(wd => {
+                        const isCurrent = wd.date === selectedDate
+                        const wdDate = new Date(wd.date + 'T12:00:00')
+                        const wdType = getEffectiveWorkoutType(wdDate, overrides)
+                        const wdColors = getWorkoutColors(wdType)
                         return (
                           <button
-                            key={type}
-                            onClick={() => handleSetOverride(type)}
-                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+                            key={wd.date}
+                            disabled={isCurrent}
+                            onClick={() => handleMoveWorkout(wd.date)}
+                            className={`flex flex-col items-center gap-0.5 py-2 rounded-xl border-2 text-xs transition-all ${
                               isCurrent
-                                ? `${c.border} ${c.bg} ${c.text} ring-2 ring-offset-1 ring-blue-500`
-                                : `border-slate-200 hover:${c.bg} hover:${c.border} text-slate-700`
+                                ? 'border-blue-400 bg-blue-50 opacity-60'
+                                : 'border-slate-200 hover:border-blue-400 hover:bg-blue-50 active:scale-95'
                             }`}
                           >
-                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${c.badge}`}>
-                              {SHORT_LABELS[type]}
+                            <span className="font-semibold text-slate-600">{wd.dayName}</span>
+                            <span className="text-slate-500">{wd.dayNum}</span>
+                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full ${wdColors.badge}`}>
+                              {SHORT_LABELS[wdType]}
                             </span>
-                            <span className="text-xs leading-tight">{getWorkoutDisplayName(type)}</span>
                           </button>
                         )
                       })}
@@ -288,12 +335,13 @@ export default function CalendarView() {
 
                 {/* Action buttons */}
                 <div className="mt-4 space-y-2 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
-                  {!isPickingType && (
+                  {!isMoving && (
                     <button
-                      onClick={() => setIsPickingType(true)}
-                      className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-sm transition-colors"
+                      onClick={() => setIsMoving(true)}
+                      className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-sm transition-colors flex items-center justify-center gap-2"
                     >
-                      Reassign workout
+                      <ArrowRightLeft className="w-4 h-4" />
+                      Move this workout
                     </button>
                   )}
 
