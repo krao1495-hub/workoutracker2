@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Flame } from 'lucide-react'
-import { getSettings, getBodyStats, saveBodyStats } from '@/lib/storage'
+import { Flame, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { getSettings, getBodyStats, saveBodyStats, getMealPlans } from '@/lib/storage'
+import { formatDate } from '@/lib/utils'
 import { BodyStats } from '@/lib/types'
 
 type ActivityLevel = BodyStats['activityLevel']
@@ -40,6 +41,7 @@ export default function StatsPage() {
   const [goal, setGoal]                   = useState<Goal>('maintenance')
   const [weightUnit, setWeightUnit]       = useState<'lbs' | 'kg'>('lbs')
   const [todayDow, setTodayDow]           = useState(0)
+  const [todayIntake, setTodayIntake]     = useState<number | null>(null)
 
   useEffect(() => {
     const settings = getSettings()
@@ -56,6 +58,18 @@ export default function StatsPage() {
     }
     if (stats.bodyFatPct !== null) setBodyFatInput(stats.bodyFatPct.toString())
     setActivityLevel(stats.activityLevel)
+
+    // Load today's food log calories
+    const todayStr = formatDate(new Date())
+    const plans = getMealPlans().filter(p => p.date === todayStr)
+    if (plans.length > 0) {
+      const total = plans.reduce((sum, p) => {
+        // Use plan total if available, otherwise sum individual meals
+        if (p.totalCalories != null) return sum + p.totalCalories
+        return sum + p.meals.reduce((ms, m) => ms + (m.calories ?? 0), 0)
+      }, 0)
+      setTodayIntake(total > 0 ? total : null)
+    }
   }, [])
 
   const persist = (
@@ -210,6 +224,70 @@ export default function StatsPage() {
               <span className="text-lg font-bold">{Math.round(tdee).toLocaleString()} kcal/day</span>
             </div>
           </div>
+
+          {/* Daily calorie balance */}
+          {(() => {
+            const todaySchedule = WEEKLY_SCHEDULE[todayDow]
+            const todayExpenditure = Math.round(tdee * (1 + todaySchedule.adjustPct / 100))
+            const balance = todayIntake != null ? todayExpenditure - todayIntake : null
+            const isDeficit = balance != null && balance > 0
+            const isSurplus = balance != null && balance < 0
+
+            return (
+              <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                <h2 className="font-semibold text-slate-800">Today&apos;s Balance</h2>
+                <p className="text-xs text-slate-500">
+                  {todaySchedule.day} — {todaySchedule.label}
+                  {todaySchedule.adjustPct !== 0 && ` (${todaySchedule.adjustPct > 0 ? '+' : ''}${todaySchedule.adjustPct}%)`}
+                </p>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Expenditure */}
+                  <div className="bg-red-50 rounded-xl p-3 text-center">
+                    <div className="text-lg font-bold text-red-600">{todayExpenditure.toLocaleString()}</div>
+                    <div className="text-xs text-red-500 font-medium">Burn</div>
+                  </div>
+
+                  {/* Intake */}
+                  <div className="bg-green-50 rounded-xl p-3 text-center">
+                    <div className="text-lg font-bold text-green-600">
+                      {todayIntake != null ? todayIntake.toLocaleString() : '—'}
+                    </div>
+                    <div className="text-xs text-green-500 font-medium">Intake</div>
+                  </div>
+
+                  {/* Net */}
+                  <div className={`rounded-xl p-3 text-center ${
+                    balance == null ? 'bg-slate-50' : isDeficit ? 'bg-blue-50' : 'bg-amber-50'
+                  }`}>
+                    <div className={`text-lg font-bold flex items-center justify-center gap-1 ${
+                      balance == null ? 'text-slate-400' : isDeficit ? 'text-blue-600' : 'text-amber-600'
+                    }`}>
+                      {balance == null ? (
+                        '—'
+                      ) : (
+                        <>
+                          {isDeficit ? <TrendingDown className="w-4 h-4" /> : isSurplus ? <TrendingUp className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
+                          {Math.abs(balance).toLocaleString()}
+                        </>
+                      )}
+                    </div>
+                    <div className={`text-xs font-medium ${
+                      balance == null ? 'text-slate-400' : isDeficit ? 'text-blue-500' : 'text-amber-500'
+                    }`}>
+                      {balance == null ? 'Net' : isDeficit ? 'Deficit' : isSurplus ? 'Surplus' : 'Even'}
+                    </div>
+                  </div>
+                </div>
+
+                {todayIntake == null && (
+                  <p className="text-xs text-slate-400 text-center">
+                    Log your meals via the AI Coach to see your balance.
+                  </p>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Goal toggle + macros */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
