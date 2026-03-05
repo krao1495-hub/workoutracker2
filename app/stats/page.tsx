@@ -227,9 +227,8 @@ export default function StatsPage() {
 
           {/* Daily calorie balance */}
           {(() => {
-            const todaySchedule = WEEKLY_SCHEDULE[todayDow]
-            const todayExpenditure = Math.round(tdee * (1 + todaySchedule.adjustPct / 100))
-            const balance = todayIntake != null ? todayExpenditure - todayIntake : null
+            const bmrRounded = Math.round(bmr)
+            const balance = todayIntake != null ? bmrRounded - todayIntake : null
             const isDeficit = balance != null && balance > 0
             const isSurplus = balance != null && balance < 0
 
@@ -237,15 +236,14 @@ export default function StatsPage() {
               <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
                 <h2 className="font-semibold text-slate-800">Today&apos;s Balance</h2>
                 <p className="text-xs text-slate-500">
-                  {todaySchedule.day} — {todaySchedule.label}
-                  {todaySchedule.adjustPct !== 0 && ` (${todaySchedule.adjustPct > 0 ? '+' : ''}${todaySchedule.adjustPct}%)`}
+                  BMR (basal burn at rest) vs food logged today
                 </p>
 
                 <div className="grid grid-cols-3 gap-2">
-                  {/* Expenditure */}
+                  {/* BMR */}
                   <div className="bg-red-50 rounded-xl p-3 text-center">
-                    <div className="text-lg font-bold text-red-600">{todayExpenditure.toLocaleString()}</div>
-                    <div className="text-xs text-red-500 font-medium">Burn</div>
+                    <div className="text-lg font-bold text-red-600">{bmrRounded.toLocaleString()}</div>
+                    <div className="text-xs text-red-500 font-medium">BMR</div>
                   </div>
 
                   {/* Intake */}
