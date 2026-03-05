@@ -217,13 +217,13 @@ export default function CalendarView() {
           />
 
           {/* Sheet */}
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
-            <div className="max-w-md mx-auto px-4 pt-4 pb-8">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="max-w-md mx-auto w-full px-4 pt-4 flex-shrink-0">
               {/* Handle bar */}
               <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4" />
 
               {/* Close button */}
-              <button onClick={closeSheet} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+              <button onClick={closeSheet} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-10">
                 <X className="w-5 h-5" />
               </button>
 
@@ -241,75 +241,80 @@ export default function CalendarView() {
                   </span>
                 </div>
               </div>
+            </div>
 
-              {/* Override banner */}
-              {sheetIsOverridden && sheetDefaultType && (
-                <div className="mb-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-800">
-                  <span className="text-base">⚠️</span>
-                  <span>Rescheduled — default was <strong>{getWorkoutDisplayName(sheetDefaultType)}</strong></span>
-                </div>
-              )}
-
-              {/* Workout detail */}
-              <WorkoutDetail workoutType={sheetWorkoutType} week={sheetWeek} />
-
-              {/* Type picker */}
-              {isPickingType && (
-                <div className="mt-4">
-                  <p className="text-sm font-semibold text-slate-700 mb-2">Choose workout type:</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ALL_TYPES.map(type => {
-                      const c = getWorkoutColors(type)
-                      const isCurrent = type === sheetWorkoutType
-                      return (
-                        <button
-                          key={type}
-                          onClick={() => handleSetOverride(type)}
-                          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
-                            isCurrent
-                              ? `${c.border} ${c.bg} ${c.text} ring-2 ring-offset-1 ring-blue-500`
-                              : `border-slate-200 hover:${c.bg} hover:${c.border} text-slate-700`
-                          }`}
-                        >
-                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${c.badge}`}>
-                            {SHORT_LABELS[type]}
-                          </span>
-                          <span className="text-xs leading-tight">{getWorkoutDisplayName(type)}</span>
-                        </button>
-                      )
-                    })}
+            {/* Scrollable content area */}
+            <div className="overflow-y-auto flex-1 min-h-0">
+              <div className="max-w-md mx-auto w-full px-4">
+                {/* Override banner */}
+                {sheetIsOverridden && sheetDefaultType && (
+                  <div className="mb-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-800">
+                    <span className="text-base">⚠️</span>
+                    <span>Rescheduled — default was <strong>{getWorkoutDisplayName(sheetDefaultType)}</strong></span>
                   </div>
+                )}
+
+                {/* Workout detail */}
+                <WorkoutDetail workoutType={sheetWorkoutType} week={sheetWeek} />
+
+                {/* Type picker */}
+                {isPickingType && (
+                  <div className="mt-4">
+                    <p className="text-sm font-semibold text-slate-700 mb-2">Choose workout type:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ALL_TYPES.map(type => {
+                        const c = getWorkoutColors(type)
+                        const isCurrent = type === sheetWorkoutType
+                        return (
+                          <button
+                            key={type}
+                            onClick={() => handleSetOverride(type)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+                              isCurrent
+                                ? `${c.border} ${c.bg} ${c.text} ring-2 ring-offset-1 ring-blue-500`
+                                : `border-slate-200 hover:${c.bg} hover:${c.border} text-slate-700`
+                            }`}
+                          >
+                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${c.badge}`}>
+                              {SHORT_LABELS[type]}
+                            </span>
+                            <span className="text-xs leading-tight">{getWorkoutDisplayName(type)}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="mt-4 space-y-2 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+                  {!isPickingType && (
+                    <button
+                      onClick={() => setIsPickingType(true)}
+                      className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-sm transition-colors"
+                    >
+                      Reassign workout
+                    </button>
+                  )}
+
+                  {sheetIsOverridden && (
+                    <button
+                      onClick={handleRemoveOverride}
+                      className="w-full py-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-sm transition-colors"
+                    >
+                      Reset to default schedule
+                    </button>
+                  )}
+
+                  {selectedDate === todayStr && (
+                    <button
+                      onClick={() => { closeSheet(); router.push('/') }}
+                      className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors"
+                    >
+                      Go log this workout →
+                    </button>
+                  )}
                 </div>
-              )}
-
-              {/* Action buttons */}
-              <div className="mt-4 space-y-2">
-                {!isPickingType && (
-                  <button
-                    onClick={() => setIsPickingType(true)}
-                    className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-sm transition-colors"
-                  >
-                    Reassign workout
-                  </button>
-                )}
-
-                {sheetIsOverridden && (
-                  <button
-                    onClick={handleRemoveOverride}
-                    className="w-full py-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-sm transition-colors"
-                  >
-                    Reset to default schedule
-                  </button>
-                )}
-
-                {selectedDate === todayStr && (
-                  <button
-                    onClick={() => { closeSheet(); router.push('/') }}
-                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors"
-                  >
-                    Go log this workout →
-                  </button>
-                )}
               </div>
             </div>
           </div>
