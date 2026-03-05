@@ -212,12 +212,12 @@ export default function CalendarView() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/40 z-40"
+            className="fixed inset-0 bg-black/40 z-[55]"
             onClick={closeSheet}
           />
 
-          {/* Sheet */}
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[90vh] flex flex-col">
+          {/* Sheet — z-[60] to sit above BottomNav (z-50) and CoachButton */}
+          <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-2xl shadow-2xl max-h-[90vh] flex flex-col">
             <div className="max-w-md mx-auto w-full px-4 pt-4 flex-shrink-0">
               {/* Handle bar */}
               <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4" />
