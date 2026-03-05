@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { MealPlan } from '@/lib/types'
 import { getMealPlans, deleteMealPlan } from '@/lib/storage'
 import { formatDateDisplay } from '@/lib/utils'
@@ -9,9 +9,23 @@ import { Trash2, UtensilsCrossed, MessageCircle } from 'lucide-react'
 export default function MealsPage() {
   const [plans, setPlans] = useState<MealPlan[]>([])
 
-  useEffect(() => {
+  const loadPlans = useCallback(() => {
     setPlans(getMealPlans().sort((a, b) => b.date.localeCompare(a.date)))
   }, [])
+
+  useEffect(() => {
+    loadPlans()
+    // Re-read localStorage when tab/page regains focus (e.g. after using AI Coach)
+    const handleFocus = () => loadPlans()
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') loadPlans()
+    })
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleFocus)
+    }
+  }, [loadPlans])
 
   const handleDelete = (id: string) => {
     deleteMealPlan(id)

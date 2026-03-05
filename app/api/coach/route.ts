@@ -71,6 +71,7 @@ Guidelines:
 
 CRITICAL TOOL RULES — always follow these:
 - When the user asks for a meal plan (any phrasing: "create", "make", "give me", "what should I eat", etc.) you MUST call the save_meal_plan tool. Never describe a meal plan in text only — always save it via the tool so it appears in the app.
+- When the user LOGS what they ate (any phrasing: "I had...", "I ate...", "for lunch I had...", "today I ate...", etc.) you MUST also call the save_meal_plan tool to record it. Use a name like "Food Log — [Date]" and include the meals they described with estimated calories and protein. This way their food intake is saved in the Meals tab for reference.
 - When the user asks to change, swap, or reschedule a workout, you MUST call the override_workout tool.
 - When the user asks to edit, rename, or update an exercise in a past or today's log, you MUST call edit_workout_log. Always call get_workout_history first to get the exact exerciseId.`
 
