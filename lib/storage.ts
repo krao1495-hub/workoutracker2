@@ -32,25 +32,18 @@ export function getLogs(): WorkoutLog[] {
 
 export function saveLog(log: WorkoutLog): void {
   if (typeof window === 'undefined') return
-  const logs = getLogs()
-  const idx = logs.findIndex(l => l.date === log.date)
-  if (idx >= 0) {
-    logs[idx] = log
-  } else {
-    logs.push(log)
-  }
+  // Remove ALL existing logs for this date (prevents duplicates), then add the new one
+  const logs = getLogs().filter(l => l.date !== log.date)
+  logs.push(log)
   localStorage.setItem(LOGS_KEY, JSON.stringify(logs))
 }
 
 export function getLogForDate(date: string): WorkoutLog | null {
   const logs = getLogs()
-  // Return the most recent log for this date
-  return logs.filter(l => l.date === date).sort((a, b) => {
-    // Prefer completed logs
-    if (a.completed && !b.completed) return -1
-    if (!a.completed && b.completed) return 1
-    return 0
-  })[0] ?? null
+  const forDate = logs.filter(l => l.date === date)
+  if (forDate.length === 0) return null
+  // Return the last entry (most recently saved)
+  return forDate[forDate.length - 1]
 }
 
 export function getSettings(): Settings {
