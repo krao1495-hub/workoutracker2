@@ -33,7 +33,7 @@ export function getLogs(): WorkoutLog[] {
 export function saveLog(log: WorkoutLog): void {
   if (typeof window === 'undefined') return
   const logs = getLogs()
-  const idx = logs.findIndex(l => l.date === log.date && l.workoutType === log.workoutType)
+  const idx = logs.findIndex(l => l.date === log.date)
   if (idx >= 0) {
     logs[idx] = log
   } else {
