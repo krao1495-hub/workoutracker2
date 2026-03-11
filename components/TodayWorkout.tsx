@@ -33,25 +33,33 @@ export default function TodayWorkout({ date }: { date?: string }) {
   const isToday = targetDate === todayStr
 
   useEffect(() => {
-    const s = getSettings()
-    setSettings(s)
-    const logs = getLogs()
-    setAllLogs(logs)
+    function loadLog() {
+      const s = getSettings()
+      setSettings(s)
+      const logs = getLogs()
+      setAllLogs(logs)
 
-    const targetDateObj = date ? new Date(date + 'T12:00:00') : new Date()
-    const dateStr = date || formatDate(new Date())
-    const overrides = getOverrides()
-    const workoutType = getEffectiveWorkoutType(targetDateObj, overrides)
-    const weekInCycle = getWeekInCycle(targetDateObj, s.cycleStartDate)
+      const targetDateObj = date ? new Date(date + 'T12:00:00') : new Date()
+      const dateStr = date || formatDate(new Date())
+      const overrides = getOverrides()
+      const workoutType = getEffectiveWorkoutType(targetDateObj, overrides)
+      const weekInCycle = getWeekInCycle(targetDateObj, s.cycleStartDate)
 
-    const existing = getLogForDate(dateStr)
-    if (existing) {
-      setLog(existing)
-    } else {
-      const fresh = createInitialLog(dateStr, workoutType, weekInCycle)
-      setLog(fresh)
-      saveLog(fresh)
+      const existing = getLogForDate(dateStr)
+      if (existing) {
+        setLog(existing)
+      } else {
+        const fresh = createInitialLog(dateStr, workoutType, weekInCycle)
+        setLog(fresh)
+        saveLog(fresh)
+      }
     }
+
+    loadLog()
+
+    // Re-load when AI Coach saves a workout (custom workout, override, etc.)
+    window.addEventListener('workout-updated', loadLog)
+    return () => window.removeEventListener('workout-updated', loadLog)
   }, [date])
 
   const updateLog = (updated: WorkoutLog) => {

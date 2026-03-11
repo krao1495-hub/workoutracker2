@@ -47,9 +47,16 @@ export default function CalendarView() {
   const [isMoving, setIsMoving] = useState(false)
 
   useEffect(() => {
-    setOverrides(getOverrides())
-    const s = getSettings()
-    setCycleStartDate(s.cycleStartDate)
+    function loadData() {
+      setOverrides(getOverrides())
+      const s = getSettings()
+      setCycleStartDate(s.cycleStartDate)
+    }
+
+    loadData()
+
+    window.addEventListener('workout-updated', loadData)
+    return () => window.removeEventListener('workout-updated', loadData)
   }, [])
 
   function prevMonth() {

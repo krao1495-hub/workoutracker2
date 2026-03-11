@@ -158,6 +158,7 @@ export default function CoachButton() {
 
       if (data.actions?.length > 0) {
         applyActions(data.actions)
+        window.dispatchEvent(new Event('workout-updated'))
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
