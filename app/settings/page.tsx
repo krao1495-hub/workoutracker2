@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Settings } from '@/lib/types'
-import { getSettings, saveSettings } from '@/lib/storage'
+import { Settings, AIProvider } from '@/lib/types'
+import { getSettings, saveSettings, getAIProvider, saveAIProvider } from '@/lib/storage'
 import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 
 type EmailStatus = 'idle' | 'sending' | 'success' | 'error'
@@ -16,9 +16,11 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [emailStatus, setEmailStatus] = useState<EmailStatus>('idle')
   const [emailError, setEmailError] = useState('')
+  const [aiProvider, setAiProvider] = useState<AIProvider>('openai')
 
   useEffect(() => {
     setSettings(getSettings())
+    setAiProvider(getAIProvider())
   }, [])
 
   const handleChange = (patch: Partial<Settings>) => {
@@ -174,16 +176,59 @@ export default function SettingsPage() {
       </div>
 
       {/* AI Coach setup */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
-        <h2 className="font-semibold text-blue-800">AI Coach Setup</h2>
-        <p className="text-sm text-blue-700">
-          The AI Coach requires an OpenAI API key. Add this to your <span className="font-mono">.env.local</span> file and Vercel environment variables:
-        </p>
-        <div className="font-mono text-xs bg-blue-100 rounded-lg p-3 text-blue-900">
-          <p>OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx</p>
+      <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+        <h2 className="font-semibold text-slate-800">AI Coach</h2>
+
+        {/* Provider selector */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Default AI Provider
+          </label>
+          <select
+            value={aiProvider}
+            onChange={e => {
+              const val = e.target.value as AIProvider
+              setAiProvider(val)
+              saveAIProvider(val)
+              setSaved(true)
+              setTimeout(() => setSaved(false), 1500)
+            }}
+            className="w-full border border-slate-300 rounded-xl px-3 py-3
+                       focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+            style={{ fontSize: '16px' }}
+          >
+            <option value="openai">OpenAI GPT-4o</option>
+            <option value="anthropic">Anthropic Claude</option>
+          </select>
+          <p className="text-xs text-slate-500 mt-1">
+            You can also quick-toggle the provider in the chat header.
+          </p>
         </div>
-        <p className="text-xs text-blue-600">
-          Get an API key at platform.openai.com. The coach uses GPT-4o — check your usage limits.
+
+        {/* OpenAI key info */}
+        <div className="bg-blue-50 rounded-xl p-3 space-y-1">
+          <p className="text-sm font-medium text-blue-800">OpenAI (GPT-4o)</p>
+          <div className="font-mono text-xs bg-blue-100 rounded-lg p-2.5 text-blue-900">
+            OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
+          </div>
+          <p className="text-xs text-blue-600">
+            Get an API key at platform.openai.com
+          </p>
+        </div>
+
+        {/* Anthropic key info */}
+        <div className="bg-amber-50 rounded-xl p-3 space-y-1">
+          <p className="text-sm font-medium text-amber-800">Anthropic (Claude)</p>
+          <div className="font-mono text-xs bg-amber-100 rounded-lg p-2.5 text-amber-900">
+            ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxx
+          </div>
+          <p className="text-xs text-amber-600">
+            Get an API key at console.anthropic.com
+          </p>
+        </div>
+
+        <p className="text-xs text-slate-500">
+          Add your API key(s) to <span className="font-mono">.env.local</span> and Vercel environment variables.
         </p>
       </div>
     </div>

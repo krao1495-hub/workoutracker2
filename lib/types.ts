@@ -1,3 +1,5 @@
+export type AIProvider = 'openai' | 'anthropic'
+
 export type WorkoutType =
   | 'rest_yoga'
   | 'easy_run'

@@ -1,4 +1,4 @@
-import { WorkoutLog, Settings, WorkoutType, ChatMessage, MealPlan, BodyStats } from './types'
+import { WorkoutLog, Settings, WorkoutType, ChatMessage, MealPlan, BodyStats, AIProvider } from './types'
 
 const LOGS_KEY = 'workout_logs'
 const SETTINGS_KEY = 'workout_settings'
@@ -6,6 +6,7 @@ const OVERRIDES_KEY = 'workout_overrides'
 const MEAL_PLANS_KEY = 'coach_meal_plans'
 const CHAT_HISTORY_KEY = 'coach_chat_history'
 const BODY_STATS_KEY = 'body_stats'
+const AI_PROVIDER_KEY = 'ai_provider'
 
 const DEFAULT_BODY_STATS: BodyStats = {
   weightLbs: null,
@@ -165,4 +166,21 @@ export function getBodyStats(): BodyStats {
 export function saveBodyStats(stats: BodyStats): void {
   if (typeof window === 'undefined') return
   localStorage.setItem(BODY_STATS_KEY, JSON.stringify(stats))
+}
+
+// ─── AI Provider ──────────────────────────────────────────────────────────────
+
+export function getAIProvider(): AIProvider {
+  if (typeof window === 'undefined') return 'openai'
+  try {
+    const raw = localStorage.getItem(AI_PROVIDER_KEY)
+    return raw === 'anthropic' ? 'anthropic' : 'openai'
+  } catch {
+    return 'openai'
+  }
+}
+
+export function saveAIProvider(provider: AIProvider): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(AI_PROVIDER_KEY, provider)
 }

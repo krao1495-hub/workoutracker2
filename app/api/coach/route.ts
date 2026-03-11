@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
-import { WorkoutLog, Settings, WorkoutType, ChatMessage, MealPlan, CoachAction } from '@/lib/types'
+import Anthropic from '@anthropic-ai/sdk'
+import { WorkoutLog, Settings, WorkoutType, ChatMessage, CoachAction, AIProvider } from '@/lib/types'
+import { toOpenAITools, toAnthropicTools, executeTool } from '@/lib/coach-tools'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,16 +15,6 @@ interface TodayInfo {
   completed: boolean
 }
 
-// OpenAI function tool call shape
-interface FunctionToolCall {
-  id: string
-  type: 'function'
-  function: {
-    name: string
-    arguments: string
-  }
-}
-
 interface CoachRequestBody {
   message: string
   history: ChatMessage[]
@@ -32,6 +24,7 @@ interface CoachRequestBody {
     todayInfo: TodayInfo
     overrides: Record<string, WorkoutType>
   }
+  provider?: AIProvider
 }
 
 interface CoachResponseBody {
@@ -75,191 +68,27 @@ CRITICAL TOOL RULES — always follow these:
 - When the user asks to change, swap, or reschedule a workout, you MUST call the override_workout tool.
 - When the user asks to edit, rename, or update an exercise in a past or today's log, you MUST call edit_workout_log. Always call get_workout_history first to get the exact exerciseId.`
 
-// ─── Tool Definitions ─────────────────────────────────────────────────────────
+// ─── OpenAI Provider ─────────────────────────────────────────────────────────
 
-const tools: OpenAI.Chat.ChatCompletionTool[] = [
-  {
-    type: 'function',
-    function: {
-      name: 'get_workout_history',
-      description: "Search the user's logged workout history by exercise name or date range. Use this to look up past performance before giving advice.",
-      parameters: {
-        type: 'object',
-        properties: {
-          exerciseName: {
-            type: 'string',
-            description: 'Optional: filter by exercise name (partial match, case-insensitive)',
-          },
-          fromDate: {
-            type: 'string',
-            description: 'Optional: start of date range in YYYY-MM-DD format',
-          },
-          toDate: {
-            type: 'string',
-            description: 'Optional: end of date range in YYYY-MM-DD format',
-          },
-          limit: {
-            type: 'number',
-            description: 'Max number of logs to return. Default 10.',
-          },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_today_workout',
-      description: "Get today's scheduled workout type, week in cycle, and any exercises already logged.",
-      parameters: {
-        type: 'object',
-        properties: {},
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'override_workout',
-      description: 'Schedule a different workout type for a specific date, overriding the default rotation. Use when the user explicitly asks to swap, change, or reschedule a workout.',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: {
-            type: 'string',
-            description: 'The date to override in YYYY-MM-DD format',
-          },
-          workoutType: {
-            type: 'string',
-            enum: ['rest_yoga', 'easy_run', 'legs_squat', 'legs_no_squat', 'long_run', 'upper_body'],
-            description: 'The workout type to schedule for that date',
-          },
-        },
-        required: ['date', 'workoutType'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'save_meal_plan',
-      description: 'Create and save a structured meal plan for a specific date. Use when the user asks for a meal plan, nutrition advice, or help eating around their workouts.',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: {
-            type: 'string',
-            description: "The date this meal plan is for in YYYY-MM-DD format. Default to today's date if not specified.",
-          },
-          name: {
-            type: 'string',
-            description: 'Short descriptive name, e.g. "Leg Day Fuel" or "High Protein Recovery"',
-          },
-          description: {
-            type: 'string',
-            description: 'Brief overview of the nutrition strategy for this plan',
-          },
-          meals: {
-            type: 'array',
-            description: 'List of meals throughout the day',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string', description: 'e.g. "Breakfast", "Pre-workout snack", "Dinner"' },
-                calories: { type: 'number', description: 'Approximate calories' },
-                protein: { type: 'number', description: 'Protein in grams' },
-                description: { type: 'string', description: 'What to eat — specific foods and portions' },
-              },
-              required: ['name', 'description'],
-            },
-          },
-          totalCalories: { type: 'number', description: 'Sum of calories across all meals' },
-          totalProtein: { type: 'number', description: 'Sum of protein in grams across all meals' },
-        },
-        required: ['date', 'name', 'description', 'meals'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_exercise_progress',
-      description: 'Compute progression data for a specific exercise: max weight over time, volume trend, and personal record. Use when the user asks about strength gains, plateaus, or progress on a specific lift.',
-      parameters: {
-        type: 'object',
-        properties: {
-          exerciseId: {
-            type: 'string',
-            description: "The exercise ID from the workout program. Common IDs: 'barbell_back_squat', 'db_chest_press', 'pull_ups', 'romanian_deadlift', 'hip_thrust', 'overhead_press', 'bent_over_barbell_row'. Use get_workout_history first if you're not sure of the exact ID.",
-          },
-        },
-        required: ['exerciseId'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'edit_workout_log',
-      description: 'Edit an exercise entry in an existing workout log. Use to rename exercises, correct weights/reps, or update set completion. Call get_workout_history first to get the exact exerciseId and current data.',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: {
-            type: 'string',
-            description: 'Date of the workout log to edit in YYYY-MM-DD format',
-          },
-          exerciseId: {
-            type: 'string',
-            description: 'The exerciseId of the exercise to edit (from get_workout_history)',
-          },
-          name: {
-            type: 'string',
-            description: 'New display name for the exercise (optional)',
-          },
-          sets: {
-            type: 'array',
-            description: 'Full replacement set data (optional). Provide all sets, not just changed ones.',
-            items: {
-              type: 'object',
-              properties: {
-                setNumber: { type: 'number' },
-                reps: { type: 'number' },
-                weight: { type: 'number' },
-                completed: { type: 'boolean' },
-              },
-            },
-          },
-        },
-        required: ['date', 'exerciseId'],
-      },
-    },
-  },
-]
+// OpenAI function tool call shape
+interface FunctionToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
 
-// ─── Route Handler ────────────────────────────────────────────────────────────
-
-export async function POST(request: NextRequest) {
-  try {
+async function callOpenAI(body: CoachRequestBody): Promise<CoachResponseBody> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    return Response.json(
-      { error: 'OPENAI_API_KEY is not configured. Add it to your .env.local file.' },
-      { status: 500 }
-    )
+    throw new Error('OPENAI_API_KEY is not configured. Add it to your .env.local file or switch to Anthropic in Settings.')
   }
 
-  let body: CoachRequestBody
-  try {
-    body = await request.json()
-  } catch {
-    return Response.json({ error: 'Invalid request body' }, { status: 400 })
-  }
-
-  const { message, history, context } = body
   const openai = new OpenAI({ apiKey })
+  const tools = toOpenAITools()
+  const pendingActions: CoachAction[] = []
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -267,23 +96,21 @@ export async function POST(request: NextRequest) {
       role: 'system',
       content: `Current user context:\n${JSON.stringify(
         {
-          today: context.todayInfo,
-          settings: context.settings,
-          recentLogs: context.logs.slice(-14),
-          overrides: context.overrides,
+          today: body.context.todayInfo,
+          settings: body.context.settings,
+          recentLogs: body.context.logs.slice(-14),
+          overrides: body.context.overrides,
         },
         null,
         2
       )}`,
     },
-    ...history.map(m => ({
+    ...body.history.map(m => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     })),
-    { role: 'user', content: message },
+    { role: 'user', content: body.message },
   ]
-
-  const pendingActions: CoachAction[] = []
 
   // Agentic tool-use loop — max 5 iterations
   for (let iteration = 0; iteration < 5; iteration++) {
@@ -304,145 +131,13 @@ export async function POST(request: NextRequest) {
       break
     }
 
-    // Process each tool call (filter to standard function tool calls only)
+    // Process each tool call
     const fnToolCalls = assistantMessage.tool_calls.filter(
       tc => tc.type === 'function'
     ) as FunctionToolCall[]
     for (const toolCall of fnToolCalls) {
       const args = JSON.parse(toolCall.function.arguments)
-      let toolResult: unknown
-
-      switch (toolCall.function.name) {
-
-        case 'get_workout_history': {
-          let filtered = context.logs
-          if (args.exerciseName) {
-            const query = (args.exerciseName as string).toLowerCase()
-            filtered = filtered.filter(log =>
-              log.exercises.some(e => e.name.toLowerCase().includes(query))
-            )
-          }
-          if (args.fromDate) {
-            filtered = filtered.filter(log => log.date >= (args.fromDate as string))
-          }
-          if (args.toDate) {
-            filtered = filtered.filter(log => log.date <= (args.toDate as string))
-          }
-          toolResult = filtered
-            .sort((a, b) => b.date.localeCompare(a.date))
-            .slice(0, (args.limit as number) ?? 10)
-          break
-        }
-
-        case 'get_today_workout': {
-          toolResult = context.todayInfo
-          break
-        }
-
-        case 'override_workout': {
-          const action: CoachAction = {
-            type: 'override_workout',
-            date: args.date as string,
-            workoutType: args.workoutType as WorkoutType,
-          }
-          pendingActions.push(action)
-          toolResult = {
-            success: true,
-            message: `Scheduled ${args.workoutType} for ${args.date}`,
-          }
-          break
-        }
-
-        case 'save_meal_plan': {
-          const plan: MealPlan = {
-            id: `meal_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-            date: args.date as string,
-            name: args.name as string,
-            description: args.description as string,
-            meals: args.meals as MealPlan['meals'],
-            totalCalories: args.totalCalories as number | undefined,
-            totalProtein: args.totalProtein as number | undefined,
-          }
-          const action: CoachAction = { type: 'save_meal_plan', plan }
-          pendingActions.push(action)
-          toolResult = {
-            success: true,
-            planId: plan.id,
-            message: `Meal plan "${plan.name}" saved for ${plan.date}`,
-          }
-          break
-        }
-
-        case 'get_exercise_progress': {
-          const exerciseId = args.exerciseId as string
-          const relevantLogs = context.logs
-            .filter(log => log.exercises.some(e => e.exerciseId === exerciseId))
-            .sort((a, b) => a.date.localeCompare(b.date))
-
-          const progressData = relevantLogs.map(log => {
-            const ex = log.exercises.find(e => e.exerciseId === exerciseId)!
-            const completedSets = ex.sets.filter(
-              s => s.completed && s.weight != null && s.reps != null
-            )
-            const maxWeight =
-              completedSets.length > 0
-                ? Math.max(...completedSets.map(s => s.weight!))
-                : null
-            const totalVolume = completedSets.reduce(
-              (sum, s) => sum + s.weight! * s.reps!,
-              0
-            )
-            return {
-              date: log.date,
-              weekInCycle: log.weekInCycle,
-              maxWeight,
-              totalVolume,
-              sets: completedSets.length,
-            }
-          })
-
-          const pr =
-            progressData.length > 0
-              ? Math.max(...progressData.map(d => d.maxWeight ?? 0))
-              : null
-
-          toolResult = {
-            exerciseId,
-            weightUnit: context.settings.weightUnit,
-            sessions: progressData.length,
-            personalRecord: pr,
-            history: progressData,
-            trend:
-              progressData.length >= 2
-                ? (progressData.at(-1)!.maxWeight ?? 0) > (progressData[0].maxWeight ?? 0)
-                  ? 'improving'
-                  : 'plateaued'
-                : 'insufficient_data',
-          }
-          break
-        }
-
-        case 'edit_workout_log': {
-          const action: CoachAction = {
-            type: 'edit_workout_log',
-            date: args.date as string,
-            exerciseId: args.exerciseId as string,
-            updates: {
-              ...(args.name ? { name: args.name as string } : {}),
-              ...(args.sets ? { sets: args.sets } : {}),
-            },
-          }
-          pendingActions.push(action)
-          toolResult = {
-            success: true,
-            message: `Updated exercise "${args.exerciseId}" on ${args.date}`,
-          }
-          break
-        }
-
-        default:
-          toolResult = { error: `Unknown tool: ${toolCall.function.name}` }
-      }
+      const toolResult = executeTool(toolCall.function.name, args, body.context, pendingActions)
 
       messages.push({
         role: 'tool',
@@ -452,7 +147,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Extract final text response from the last assistant message without tool calls
+  // Extract final text response
   const lastAssistant = [...messages]
     .reverse()
     .find(
@@ -466,12 +161,111 @@ export async function POST(request: NextRequest) {
     (lastAssistant?.content as string | null) ??
     'I had trouble generating a response. Please try again.'
 
-  const result: CoachResponseBody = {
-    message: responseText,
-    actions: pendingActions,
+  return { message: responseText, actions: pendingActions }
+}
+
+// ─── Anthropic Provider ──────────────────────────────────────────────────────
+
+async function callAnthropic(body: CoachRequestBody): Promise<CoachResponseBody> {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY is not configured. Add it to your .env.local file or switch to OpenAI in Settings.')
   }
 
-  return Response.json(result)
+  const anthropic = new Anthropic({ apiKey })
+  const tools = toAnthropicTools()
+  const pendingActions: CoachAction[] = []
+
+  const systemPrompt = SYSTEM_PROMPT + '\n\nCurrent user context:\n' + JSON.stringify(
+    {
+      today: body.context.todayInfo,
+      settings: body.context.settings,
+      recentLogs: body.context.logs.slice(-14),
+      overrides: body.context.overrides,
+    },
+    null,
+    2
+  )
+
+  const messages: Anthropic.MessageParam[] = [
+    ...body.history.map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    })),
+    { role: 'user', content: body.message },
+  ]
+
+  // Agentic tool-use loop — max 5 iterations
+  for (let iteration = 0; iteration < 5; iteration++) {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages,
+      tools: tools as Anthropic.Tool[],
+    })
+
+    const toolUseBlocks = response.content.filter(
+      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+    )
+    const textBlocks = response.content.filter(
+      (block): block is Anthropic.TextBlock => block.type === 'text'
+    )
+
+    // Push assistant message with all content blocks
+    messages.push({ role: 'assistant', content: response.content })
+
+    // No tool use → done
+    if (response.stop_reason === 'end_turn' || toolUseBlocks.length === 0) {
+      const finalText = textBlocks.map(b => b.text).join('\n') ||
+        'I had trouble generating a response. Please try again.'
+      return { message: finalText, actions: pendingActions }
+    }
+
+    // Process tool calls and send results back
+    const toolResults: Anthropic.ToolResultBlockParam[] = toolUseBlocks.map(toolUse => {
+      const result = executeTool(
+        toolUse.name,
+        toolUse.input as Record<string, unknown>,
+        body.context,
+        pendingActions,
+      )
+      return {
+        type: 'tool_result' as const,
+        tool_use_id: toolUse.id,
+        content: JSON.stringify(result),
+      }
+    })
+
+    // Anthropic requires tool results in a 'user' message
+    messages.push({ role: 'user', content: toolResults })
+  }
+
+  // Fallback if loop exhausted
+  return {
+    message: 'I had trouble generating a response. Please try again.',
+    actions: pendingActions,
+  }
+}
+
+// ─── Route Handler ────────────────────────────────────────────────────────────
+
+export async function POST(request: NextRequest) {
+  try {
+    let body: CoachRequestBody
+    try {
+      body = await request.json()
+    } catch {
+      return Response.json({ error: 'Invalid request body' }, { status: 400 })
+    }
+
+    const provider = body.provider ?? 'openai'
+
+    const result = provider === 'anthropic'
+      ? await callAnthropic(body)
+      : await callOpenAI(body)
+
+    return Response.json(result)
   } catch (err) {
     console.error('Coach route unhandled error:', err)
     return Response.json(

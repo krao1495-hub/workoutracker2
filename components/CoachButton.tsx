@@ -14,6 +14,8 @@ import {
   setOverride,
   saveLog,
   getLogForDate,
+  getAIProvider,
+  saveAIProvider,
 } from '@/lib/storage'
 import {
   getEffectiveWorkoutType,
@@ -21,7 +23,7 @@ import {
   formatDate,
   getWorkoutDisplayName,
 } from '@/lib/utils'
-import { ChatMessage, CoachAction } from '@/lib/types'
+import { ChatMessage, CoachAction, AIProvider } from '@/lib/types'
 
 function buildContext() {
   const logs = getLogs()
@@ -86,11 +88,13 @@ export default function CoachButton() {
   const [inputText, setInputText] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [provider, setProvider] = useState<AIProvider>('openai')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     setMessages(getChatHistory())
+    setProvider(getAIProvider())
   }, [])
 
   useEffect(() => {
@@ -128,6 +132,7 @@ export default function CoachButton() {
           message: userMsg.content,
           history: messages,
           context: buildContext(),
+          provider,
         }),
       })
 
@@ -197,7 +202,22 @@ export default function CoachButton() {
               <div className="flex items-center gap-2">
                 <MessageCircle className="w-5 h-5 text-blue-600" />
                 <span className="font-semibold text-slate-800">AI Coach</span>
-                <span className="text-xs text-slate-400">GPT-4o</span>
+                <button
+                  onClick={() => {
+                    const next: AIProvider = provider === 'openai' ? 'anthropic' : 'openai'
+                    setProvider(next)
+                    saveAIProvider(next)
+                  }}
+                  className="text-xs px-2 py-0.5 rounded-full border transition-colors
+                             hover:bg-slate-50 active:scale-95"
+                  style={{
+                    borderColor: provider === 'openai' ? '#10a37f' : '#d97706',
+                    color: provider === 'openai' ? '#10a37f' : '#d97706',
+                  }}
+                  title="Click to switch AI provider"
+                >
+                  {provider === 'openai' ? 'GPT-4o' : 'Claude'}
+                </button>
               </div>
               <div className="flex items-center gap-1">
                 <Link
