@@ -87,7 +87,7 @@ function HistoryCard({ log }: { log: WorkoutLog }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${bg} ${border} ${text}`}>
-              {getWorkoutDisplayName(log.workoutType)}
+              {log.customName ?? getWorkoutDisplayName(log.workoutType)}
             </span>
             {log.completed && <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />}
             {feedbackEmoji && <span className="text-base">{feedbackEmoji}</span>}

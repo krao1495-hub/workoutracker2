@@ -7,6 +7,7 @@ export type WorkoutType =
   | 'legs_no_squat'
   | 'long_run'
   | 'upper_body'
+  | 'custom'
 
 export type WeekInCycle = 'A' | 'B' | 'C'
 
@@ -44,6 +45,7 @@ export interface WorkoutLog {
   feedback?: Feedback
   notes?: string
   completed: boolean
+  customName?: string        // Display name for custom workouts (e.g. "Arms Day")
 }
 
 export interface Settings {
@@ -87,6 +89,7 @@ export type CoachAction =
   | { type: 'save_meal_plan'; plan: MealPlan }
   | { type: 'add_workout_note'; date: string; note: string }
   | { type: 'edit_workout_log'; date: string; exerciseId: string; updates: { name?: string; sets?: SetLog[] } }
+  | { type: 'save_custom_workout'; workout: WorkoutLog }
 
 // ─── Body Stats / BMR ─────────────────────────────────────────────────────────
 

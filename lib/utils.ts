@@ -80,6 +80,7 @@ export function getWorkoutDisplayName(type: WorkoutType): string {
     case 'legs_no_squat': return 'Legs'
     case 'long_run':      return 'Long Run — 5–7 mi'
     case 'upper_body':    return 'Upper Body + Yoga'
+    case 'custom':        return 'Custom Workout'
   }
 }
 
@@ -99,6 +100,8 @@ export function getWorkoutColors(type: WorkoutType): {
       return { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-800', badge: 'bg-teal-100 text-teal-700' }
     case 'upper_body':
       return { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800', badge: 'bg-blue-100 text-blue-700' }
+    case 'custom':
+      return { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-800', badge: 'bg-indigo-100 text-indigo-700' }
   }
 }
 

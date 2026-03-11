@@ -78,6 +78,9 @@ function applyActions(actions: CoachAction[]) {
         }
         break
       }
+      case 'save_custom_workout':
+        saveLog(action.workout)
+        break
     }
   }
 }

@@ -78,10 +78,12 @@ export default function TodayWorkout({ date }: { date?: string }) {
 
   const { bg, border, text } = getWorkoutColors(log.workoutType)
   const tip = getProgressTip(log.weekInCycle)
+  const isCustom = log.workoutType === 'custom'
   const isStrength =
     log.workoutType === 'legs_squat' ||
     log.workoutType === 'legs_no_squat' ||
-    log.workoutType === 'upper_body'
+    log.workoutType === 'upper_body' ||
+    (isCustom && log.exercises.length > 0)
   const isRun = log.workoutType === 'easy_run' || log.workoutType === 'long_run'
   const isYoga = log.workoutType === 'rest_yoga'
   const hasYoga = log.workoutType === 'rest_yoga' || log.workoutType === 'upper_body'
@@ -105,7 +107,7 @@ export default function TodayWorkout({ date }: { date?: string }) {
               {formatDateDisplay(log.date)}
             </p>
             <h2 className={`text-xl font-bold ${text}`}>
-              {getWorkoutDisplayName(log.workoutType)}
+              {log.customName ?? getWorkoutDisplayName(log.workoutType)}
             </h2>
             <span className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${bg} ${text} border ${border}`}>
               Week {log.weekInCycle}
@@ -124,8 +126,8 @@ export default function TodayWorkout({ date }: { date?: string }) {
             </button>
           </div>
         </div>
-        {/* Progressive overload tip */}
-        {isStrength && (
+        {/* Progressive overload tip (skip for custom workouts) */}
+        {isStrength && !isCustom && (
           <p className={`mt-2 text-xs ${text} opacity-75 bg-white/50 rounded-lg px-3 py-1.5`}>
             💡 {tip}
           </p>

@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { WorkoutLog, WorkoutType, MealPlan, CoachAction, Settings, SetLog } from './types'
+import { WorkoutLog, WorkoutType, MealPlan, CoachAction, Settings, SetLog, ExerciseLog, WeekInCycle } from './types'
 
 // ─── Provider-neutral tool definition ────────────────────────────────────────
 
@@ -166,6 +166,43 @@ export const COACH_TOOLS: ToolDefinition[] = [
       required: ['date', 'exerciseId'],
     },
   },
+  {
+    name: 'create_custom_workout',
+    description: 'Create a fully custom workout with arbitrary exercises for a specific date. Use when the user asks for a new workout, training program, or custom exercise plan. The workout will appear in the app ready to log. For multi-day programs, call this tool once per day.',
+    parameters: {
+      type: 'object',
+      properties: {
+        date: {
+          type: 'string',
+          description: 'The date for this workout in YYYY-MM-DD format',
+        },
+        name: {
+          type: 'string',
+          description: 'Display name for the workout, e.g. "Arms & Shoulders", "Push Day", "Deload — Upper"',
+        },
+        exercises: {
+          type: 'array',
+          description: 'List of exercises for this workout',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Exercise name, e.g. "Barbell Bench Press", "Lateral Raises"' },
+              targetSets: { type: 'number', description: 'Number of sets (e.g. 3, 4)' },
+              targetReps: { type: 'string', description: 'Target rep range, e.g. "8-10", "12", "12 ea"' },
+              suggestedWeight: { type: 'number', description: 'Optional: pre-fill weight from user history. Look up their recent working weights via get_workout_history first.' },
+            },
+            required: ['name', 'targetSets', 'targetReps'],
+          },
+        },
+        weekInCycle: {
+          type: 'string',
+          enum: ['A', 'B', 'C'],
+          description: 'Optional: week in cycle. Defaults to A.',
+        },
+      },
+      required: ['date', 'name', 'exercises'],
+    },
+  },
 ]
 
 // ─── Conversion functions ────────────────────────────────────────────────────
@@ -329,6 +366,56 @@ export function executeTool(
       return {
         success: true,
         message: `Updated exercise "${args.exerciseId}" on ${args.date}`,
+      }
+    }
+
+    case 'create_custom_workout': {
+      const exerciseInputs = args.exercises as Array<{
+        name: string
+        targetSets: number
+        targetReps: string
+        suggestedWeight?: number
+      }>
+
+      const exercises: ExerciseLog[] = exerciseInputs.map(ex => {
+        // Create a slug-style exerciseId from the name
+        const exerciseId = ex.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')
+          .replace(/^_|_$/g, '')
+
+        const sets: SetLog[] = []
+        for (let i = 1; i <= ex.targetSets; i++) {
+          sets.push({
+            setNumber: i,
+            reps: null,
+            weight: ex.suggestedWeight ?? null,
+            completed: false,
+          })
+        }
+
+        return {
+          exerciseId,
+          name: ex.name,
+          targetSets: ex.targetSets,
+          targetReps: ex.targetReps,
+          sets,
+        }
+      })
+
+      const workout: WorkoutLog = {
+        date: args.date as string,
+        workoutType: 'custom',
+        weekInCycle: (args.weekInCycle as WeekInCycle) ?? 'A',
+        exercises,
+        completed: false,
+        customName: args.name as string,
+      }
+
+      pendingActions.push({ type: 'save_custom_workout', workout })
+      return {
+        success: true,
+        message: `Custom workout "${args.name}" created for ${args.date} with ${exercises.length} exercises`,
       }
     }
 

@@ -29,6 +29,7 @@ const SHORT_LABELS: Record<WorkoutType, string> = {
   legs_squat:   'squat',
   legs_no_squat:'legs',
   upper_body:   'upper',
+  custom:       'cstm',
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -157,10 +158,11 @@ export default function CalendarView() {
   if (selectedDate) {
     sheetDate = new Date(selectedDate + 'T12:00:00')
     sheetDefaultType = getWorkoutTypeForDate(sheetDate)
-    sheetWorkoutType = getEffectiveWorkoutType(sheetDate, overrides)
+    sheetLog = getLogForDate(selectedDate)
+    // If there's a custom workout log, show it as custom instead of the scheduled type
+    sheetWorkoutType = (sheetLog?.workoutType === 'custom') ? 'custom' : getEffectiveWorkoutType(sheetDate, overrides)
     sheetIsOverridden = !!overrides[selectedDate]
     sheetWeek = getWeekInCycle(sheetDate, cycleStartDate)
-    sheetLog = getLogForDate(selectedDate)
   }
 
   return (
@@ -201,11 +203,12 @@ export default function CalendarView() {
 
             const ds = dateStr(day)
             const cellDate = new Date(year, month, day)
-            const workoutType = getEffectiveWorkoutType(cellDate, overrides)
+            const log = getLogForDate(ds)
+            // If there's a custom workout log for this date, show it as custom
+            const workoutType = (log?.workoutType === 'custom') ? 'custom' : getEffectiveWorkoutType(cellDate, overrides)
             const colors = getWorkoutColors(workoutType)
             const isToday = ds === todayStr
             const isOverridden = !!overrides[ds]
-            const log = getLogForDate(ds)
             const isCompleted = log?.completed === true
 
             return (
@@ -277,7 +280,7 @@ export default function CalendarView() {
                 </p>
                 <div className="flex items-center gap-2">
                   <span className={`text-lg font-bold ${getWorkoutColors(sheetWorkoutType).text}`}>
-                    {getWorkoutDisplayName(sheetWorkoutType)}
+                    {sheetLog?.customName ?? getWorkoutDisplayName(sheetWorkoutType)}
                   </span>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getWorkoutColors(sheetWorkoutType).badge}`}>
                     Week {sheetWeek}
@@ -298,7 +301,7 @@ export default function CalendarView() {
                 )}
 
                 {/* Workout detail */}
-                <WorkoutDetail workoutType={sheetWorkoutType} week={sheetWeek} />
+                <WorkoutDetail workoutType={sheetWorkoutType} week={sheetWeek} dateStr={selectedDate ?? undefined} />
 
                 {/* Move workout picker */}
                 {isMoving && selectedDate && (
@@ -375,11 +378,36 @@ export default function CalendarView() {
 
 // ── Workout detail sub-component ─────────────────────────────────────────────
 
-function WorkoutDetail({ workoutType, week }: { workoutType: WorkoutType; week: WeekInCycle }) {
+function WorkoutDetail({ workoutType, week, dateStr }: { workoutType: WorkoutType; week: WeekInCycle; dateStr?: string }) {
   const isStrength = workoutType === 'legs_squat' || workoutType === 'legs_no_squat' || workoutType === 'upper_body'
+  const isCustom = workoutType === 'custom'
   const isEasyRun = workoutType === 'easy_run'
   const isLongRun = workoutType === 'long_run'
   const isYoga = workoutType === 'rest_yoga'
+
+  if (isCustom && dateStr) {
+    const log = getLogForDate(dateStr)
+    if (log && log.exercises.length > 0) {
+      return (
+        <div className="space-y-2">
+          <div className="bg-indigo-50 rounded-xl p-3 space-y-1.5">
+            {log.exercises.map(e => (
+              <div key={e.exerciseId} className="flex items-center justify-between text-sm">
+                <span className="text-slate-700">{e.name}</span>
+                <span className="font-semibold text-slate-900">{e.targetSets} × {e.targetReps}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="bg-indigo-50 rounded-xl p-3 text-sm text-indigo-800">
+        <p className="font-semibold">Custom Workout</p>
+        <p className="text-xs mt-0.5 opacity-75">Coach-designed program</p>
+      </div>
+    )
+  }
 
   if (isStrength) {
     const key = workoutType as 'legs_squat' | 'legs_no_squat' | 'upper_body'

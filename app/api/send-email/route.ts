@@ -46,6 +46,7 @@ function getWorkoutDisplayName(type: WorkoutType): string {
     case 'legs_no_squat': return 'Legs'
     case 'long_run':      return 'Long Run — 5–7 miles'
     case 'upper_body':    return 'Upper Body + 30 min Yoga'
+    case 'custom':        return 'Custom Workout'
   }
 }
 
